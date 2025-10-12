@@ -15,44 +15,42 @@ int main(void)
 
 	// Send student ID: 123090704
 	// ASCII: 0x31 0x32 0x33 0x30 0x39 0x30 0x37 0x30 0x34
-	while (!(USART1->SR & (1 << 7)))
-		;			   // Wait until TXE (Transmit Data Register Empty)
+
 	USART1->DR = 0x31; // '1'
+	while (!(USART1->SR & 0x0080))
+		; // Wait for TXE
 
-	while (!(USART1->SR & (1 << 7)))
-		;
 	USART1->DR = 0x32; // '2'
+	while (!(USART1->SR & 0x0080))
+		; // Wait for TXE
 
-	while (!(USART1->SR & (1 << 7)))
-		;
 	USART1->DR = 0x33; // '3'
+	while (!(USART1->SR & 0x0080))
+		; // Wait for TXE
 
-	while (!(USART1->SR & (1 << 7)))
-		;
 	USART1->DR = 0x30; // '0'
+	while (!(USART1->SR & 0x0080))
+		; // Wait for TXE
 
-	while (!(USART1->SR & (1 << 7)))
-		;
 	USART1->DR = 0x39; // '9'
+	while (!(USART1->SR & 0x0080))
+		; // Wait for TXE
 
-	while (!(USART1->SR & (1 << 7)))
-		;
 	USART1->DR = 0x30; // '0'
+	while (!(USART1->SR & 0x0080))
+		; // Wait for TXE
 
-	while (!(USART1->SR & (1 << 7)))
-		;
 	USART1->DR = 0x37; // '7'
+	while (!(USART1->SR & 0x0080))
+		; // Wait for TXE
 
-	while (!(USART1->SR & (1 << 7)))
-		;
 	USART1->DR = 0x30; // '0'
+	while (!(USART1->SR & 0x0080))
+		; // Wait for TXE
 
-	while (!(USART1->SR & (1 << 7)))
-		;
 	USART1->DR = 0x34; // '4'
-
-	while (!(USART1->SR & (1 << 6)))
-		; // Wait until TC (Transmission Complete)
+	while (!(USART1->SR & 0x0040))
+		; // Wait for TC (Transmission Complete)
 
 	while (1)
 	{
@@ -146,12 +144,13 @@ void EIE3810_USART1_init(u32 pclk2, u32 baudrate)
 	RCC->APB2RSTR |= (1 << 14);	 // Reset USART1
 	RCC->APB2RSTR &= ~(1 << 14); // Release reset
 
-	USART1->BRR = mantissa; // Set baud rate
+	// Configure USART1 before enabling
+	USART1->BRR = mantissa; // Set baud rate FIRST
 	USART1->CR1 = 0x0000;	// Clear CR1
 	USART1->CR2 = 0x0000;	// 1 stop bit (default)
 	USART1->CR3 = 0x0000;	// No hardware flow control
 
-	USART1->CR1 |= (1 << 13); // UE: USART Enable
 	USART1->CR1 |= (1 << 3);  // TE: Transmitter Enable
 	USART1->CR1 |= (1 << 2);  // RE: Receiver Enable
+	USART1->CR1 |= (1 << 13); // UE: USART Enable (MUST be last!)
 }

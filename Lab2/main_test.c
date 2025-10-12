@@ -14,29 +14,30 @@ int main(void)
 
     while (1)
     {
-        // Send student ID: 123090704 with simple delay method (no flag checking)
-        USART1->DR = 0x31;
-        Delay(10000);
-        USART1->DR = 0x32;
-        Delay(10000);
-        USART1->DR = 0x33;
-        Delay(10000);
-        USART1->DR = 0x30;
-        Delay(10000);
-        USART1->DR = 0x39;
-        Delay(10000);
-        USART1->DR = 0x30;
-        Delay(10000);
-        USART1->DR = 0x37;
-        Delay(10000);
-        USART1->DR = 0x30;
-        Delay(10000);
-        USART1->DR = 0x34;
-        Delay(10000);
+        // // Send student ID: 123090704 with simple delay method (no flag checking)
+        // USART1->DR = 0x31;
+        // Delay(10000);
+        // USART1->DR = 0x32;
+        // Delay(10000);
+        // USART1->DR = 0x33;
+        // Delay(10000);
+        // USART1->DR = 0x30;
+        // Delay(10000);
+        // USART1->DR = 0x39;
+        // Delay(10000);
+        // USART1->DR = 0x30;
+        // Delay(10000);
+        // USART1->DR = 0x37;
+        // Delay(10000);
+        // USART1->DR = 0x30;
+        // Delay(10000);
+        // USART1->DR = 0x34;
+        // Delay(10000);
+        USART_print(1, "1234567890");
     }
 }
 
-viod USART_print(u8 USARTport, char *str)
+void USART_print(u8 USARTport, char *str)
 {
     u8 i = 0;
     while (str[i] != 0x00)

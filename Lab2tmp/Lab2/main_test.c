@@ -3,6 +3,7 @@ void EIE3810_clock_tree_init(void);
 void EIE3810_USART1_init(u32 pclk2, u32 baudrate);
 void Delay(u32);
 void USART1_SendChar(u8 ch);
+void USART_print(u8 USARTport, char *str);
 
 int main(void)
 {

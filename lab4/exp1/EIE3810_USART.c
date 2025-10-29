@@ -104,19 +104,27 @@ void USART_print(u8 USARTport, char *str)
         {
             USART2->DR = str[i];
         }
-        //Delay(50000);
-        // checks the TXE flag in the SR register
-				if (USARTport == 1)
+        // Delay(50000);
+        //  checks the TXE flag in the SR register
+        if (USARTport == 1)
         {
-            while (!((USART1->SR >> 7) & 0x1));
+            while (!((USART1->SR >> 7) & 0x1))
+                ;
         }
         if (USARTport == 2)
         {
-						while (!((USART2->SR >> 7) & 0x1));
-				}
+            while (!((USART2->SR >> 7) & 0x1))
+                ;
+        }
 
         if (i == 255)
             break;
         i++;
     }
+}
+
+void EIE3810_USART1_EXTIInit(void)
+{
+    NVIC->IP[37] = 0x65;     // Set priority for USART1 interrupt
+    NVIC->ISER[1] |= 1 << 5; // Enable USART1 interrupt in NVIC
 }

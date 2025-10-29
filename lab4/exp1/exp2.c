@@ -32,7 +32,7 @@ void EIE3810_Key2_EXTIInit(void)
     AFIO->EXTICR[0] &= 0xFFFFF0FF; // Map EXTI2 to PE2
     AFIO->EXTICR[0] |= 0x00000400;
     EXTI->IMR |= 1 << 2;     // Unmask EXTI2
-    EXTI->RTSR |= 1 << 2;    // Trigger on rising edge for EXTI2
+    EXTI->FTSR |= 1 << 2;    // Trigger on falling edge for EXTI2
     NVIC->IP[8] = 0x65;      // Set priority for EXTI2 interrupt
     NVIC->ISER[0] |= 1 << 8; // Enable EXTI2 interrupt in NVIC
 }

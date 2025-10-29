@@ -142,7 +142,7 @@ void exp4()
 
 void USART1_IRQHandler(void)
 {
-	u8 buffer;
+	u32 buffer;
 	// Check if RXNE (Receive Not Empty) flag is set
 	if (USART1->SR & (1 << 5))
 	{

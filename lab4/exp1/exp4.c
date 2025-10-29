@@ -1,27 +1,35 @@
 #include "stm32f10x.h"
 #include "EIE3810_TFTLCD.h"
 #include "EIE3810_USART.h"
+#include "EIE3810_LED.h"
 #include "Font.h"
+
+// LED control macros - DS0 on PB5
+#define DS0_ON GPIOB->BRR = 1 << 5	 // Turn on DS0 (set PB5 low for common anode)
+#define DS0_OFF GPIOB->BSRR = 1 << 5 // Turn off DS0 (set PB5 high)
 
 void Delay(u32);
 void exp1(void);
 void exp2(void);
 void exp3(void);
 void exp4(void);
+void USART1_IRQHandler(void);
 
 int main(void)
 {
 	EIE3810_clock_tree_init();
+	EIE3810_LED_Init(); // Initialize LED
 	EIE3810_TFTLCD_Init();
 	Delay(5000000);
 	EIE3810_TFTLCD_Clear(WHITE);
 	EIE3810_NVIC_SetPriorityGrouping(5);
-	EIE3810_USART_Init(72, 9600); // Initialize USART1 with baud rate 9600
-	EIE3810_USART1_EXTIInit();	  // Enable USART1 receive interrupt
+	EIE3810_USART1_init(72, 9600); // Initialize USART1 with baud rate 9600
+	EIE3810_USART1_EXTIInit();	   // Enable USART1 receive interrupt
+	DS0_OFF;					   // Turn off LED0 initially
 	USART_print(1, "1234567890");
 	while (1)
 	{
-		USART1_print(1, "EIE3810_Lab4");
+		USART_print(1, "EIE3810_Lab4");
 		while (!((USART1->SR >> 7) & 0x1))
 			;
 		Delay(1000000);
@@ -129,5 +137,23 @@ void exp4()
 		// Display character at position (start_x + i*8, start_y)
 		// Character color: BLUE, Background color: WHITE
 		EIE3810_TFTLCD_ShowChar(start_x + i * 16, start_y, ascii_codes[i], WHITE, BLACK);
+	}
+}
+
+void USART1_IRQHandler(void)
+{
+	u8 buffer;
+	// Check if RXNE (Receive Not Empty) flag is set
+	if (USART1->SR & (1 << 5))
+	{
+		buffer = USART1->DR; // Read received data (clears RXNE flag)
+		if (buffer == 'Q')
+		{
+			DS0_ON; // Turn on LED0 when 'Q' is received
+		}
+		else if (buffer == 'H')
+		{
+			DS0_OFF; // Turn off LED0 when 'H' is received
+		}
 	}
 }

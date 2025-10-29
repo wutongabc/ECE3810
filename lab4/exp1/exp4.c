@@ -14,6 +14,7 @@ void exp2(void);
 void exp3(void);
 void exp4(void);
 void USART1_IRQHandler(void);
+void Display_Register_Binary(u16 reg_value, u16 start_x, u16 start_y, char *label);
 
 int main(void)
 {
@@ -140,13 +141,78 @@ void exp4()
 	}
 }
 
+// Function to display a 16-bit register value in binary format on LCD
+// with alternating foreground/background colors for easier bit identification
+void Display_Register_Binary(u16 reg_value, u16 start_x, u16 start_y, char *label)
+{
+	u8 i;
+	u16 fg_color, bg_color;
+	char bit_char;
+	char index_char[3]; // For displaying bit indices (15, 14, ..., 0)
+
+	// Display label (register name)
+	for (i = 0; label[i] != '\0' && i < 20; i++)
+	{
+		EIE3810_TFTLCD_ShowChar(start_x + i * 8, start_y - 20, label[i], BLACK, WHITE);
+	}
+
+	// Display binary value (16 bits from MSB to LSB)
+	for (i = 0; i < 16; i++)
+	{
+		// Extract bit value (from bit 15 down to bit 0)
+		u8 bit_value = (reg_value >> (15 - i)) & 0x01;
+		bit_char = bit_value ? '1' : '0';
+
+		// Alternate colors for easier reading
+		if (i % 2 == 0)
+		{
+			fg_color = BLACK;
+			bg_color = WHITE;
+		}
+		else
+		{
+			fg_color = WHITE;
+			bg_color = BLACK;
+		}
+
+		// Display bit value
+		EIE3810_TFTLCD_ShowChar(start_x + i * 16, start_y, bit_char, fg_color, bg_color);
+
+		// Display bit index below the bit value
+		u8 bit_index = 15 - i;
+		if (bit_index >= 10)
+		{
+			// Two-digit index (10-15)
+			index_char[0] = '1';
+			index_char[1] = '0' + (bit_index - 10);
+			EIE3810_TFTLCD_ShowChar(start_x + i * 16, start_y + 20, index_char[0], fg_color, bg_color);
+			EIE3810_TFTLCD_ShowChar(start_x + i * 16 + 8, start_y + 20, index_char[1], fg_color, bg_color);
+		}
+		else
+		{
+			// Single-digit index (0-9)
+			index_char[0] = '0' + bit_index;
+			EIE3810_TFTLCD_ShowChar(start_x + i * 16 + 4, start_y + 20, index_char[0], fg_color, bg_color);
+		}
+	}
+}
+
 void USART1_IRQHandler(void)
 {
-	u32 buffer;
+	u8 buffer;
+	u16 cr1_value, dr_value;
+
 	// Check if RXNE (Receive Not Empty) flag is set
 	if (USART1->SR & (1 << 5))
 	{
+		// Read CR1 value before reading DR (to preserve state)
+		cr1_value = USART1->CR1 & 0xFFFF; // Lower 16 bits
+
 		buffer = USART1->DR; // Read received data (clears RXNE flag)
+
+		// Read DR value after reading (will show the character we just read)
+		dr_value = USART1->DR & 0xFFFF; // Lower 16 bits
+
 		if (buffer == 'Q')
 		{
 			DS0_ON; // Turn on LED0 when 'Q' is received
@@ -154,6 +220,22 @@ void USART1_IRQHandler(void)
 		else if (buffer == 'H')
 		{
 			DS0_OFF; // Turn off LED0 when 'H' is received
+		}
+		else if (buffer == 'R')
+		{
+			// Clear screen and display register values
+			EIE3810_TFTLCD_Clear(WHITE);
+
+			// Display USART1->CR1 in binary
+			Display_Register_Binary(cr1_value, 50, 100, "USART1->CR1:");
+
+			// Display USART1->DR in binary
+			Display_Register_Binary(buffer, 50, 200, "USART1->DR:");
+
+			// Display the received character 'R'
+			EIE3810_TFTLCD_ShowChar(50, 300, 'R', BLACK, WHITE);
+			EIE3810_TFTLCD_ShowChar(70, 300, '=', BLACK, WHITE);
+			EIE3810_TFTLCD_ShowChar(90, 300, buffer, BLACK, WHITE);
 		}
 	}
 }

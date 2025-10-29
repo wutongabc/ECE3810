@@ -2,6 +2,7 @@
 #include "EIE3810_TFTLCD.h"
 #include "EIE3810_USART.h"
 #include "EIE3810_LED.h"
+#include "EIE3810_EXTI.h"
 #include "Font.h"
 
 // LED control macros - DS0 on PB5
@@ -200,7 +201,7 @@ void Display_Register_Binary(u16 reg_value, u16 start_x, u16 start_y, char *labe
 void USART1_IRQHandler(void)
 {
 	u8 buffer;
-	u16 cr1_value, dr_value;
+	u16 cr1_value;
 
 	// Check if RXNE (Receive Not Empty) flag is set
 	if (USART1->SR & (1 << 5))
@@ -209,9 +210,6 @@ void USART1_IRQHandler(void)
 		cr1_value = USART1->CR1 & 0xFFFF; // Lower 16 bits
 
 		buffer = USART1->DR; // Read received data (clears RXNE flag)
-
-		// Read DR value after reading (will show the character we just read)
-		dr_value = USART1->DR & 0xFFFF; // Lower 16 bits
 
 		if (buffer == 'Q')
 		{

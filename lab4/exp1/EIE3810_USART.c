@@ -88,6 +88,7 @@ void EIE3810_USART1_init(u32 pclk1, u32 baudrate)
 
     USART1->CR1 |= (1 << 3);  // TE: Transmitter Enable
     USART1->CR1 |= (1 << 2);  // RE: Receiver Enable
+    USART1->CR1 |= (1 << 5);  // RXNEIE: RXNE Interrupt Enable (Receive interrupt)
     USART1->CR1 |= (1 << 13); // UE: USART Enable (MUST be last!)
 }
 

@@ -23,6 +23,7 @@ u8 JOYPAD_Read(void);
 // void SysTick_Handler(void);
 void Delay(u32 nCount);
 void JOYPAD_Display_Key(u8 key_value);
+void Display_Hex(u16 x, u16 y, u8 value);
 
 int main(void)
 {
@@ -30,8 +31,10 @@ int main(void)
     u8 dir = 1;
 
     EIE3810_clock_tree_init();
-    EIE3810_LED_Init();             // Initialize LED
-    EIE3810_TFTLCD_Init();          // Initialize LCD
+    EIE3810_LED_Init();    // Initialize LED
+    EIE3810_TFTLCD_Init(); // Initialize LCD
+    // Set the background to white
+    EIE3810_TFTLCD_Clear(WHITE);
     EIE3810_TIM3_PWMInit(9999, 71); // Initialize TIM3 for PWM on DS0 (PB4) at 1kHz (not used for PWM anymore)
     JOYPAD_Init();                  // Initialize JOYPAD
 
@@ -97,6 +100,14 @@ void TIM3_IRQHandler(void)
 
         TIM3->SR &= ~(1 << 0); // Clear update interrupt flag
     }
+}
+
+// Helper function to display hex value for debugging
+void Display_Hex(u16 x, u16 y, u8 value)
+{
+    const char hex_chars[] = "0123456789ABCDEF";
+    EIE3810_TFTLCD_ShowChar(x, y, hex_chars[(value >> 4) & 0x0F], RED, WHITE);
+    EIE3810_TFTLCD_ShowChar(x + 8, y, hex_chars[value & 0x0F], RED, WHITE);
 }
 
 void TIM4_IRQHandler(void)
@@ -193,6 +204,9 @@ void JOYPAD_Display_Key(u8 key_value)
     static u16 display_y = 50;
 
     u8 key_name[20] = "";
+
+    // Display the hex value for debugging (top right corner)
+    Display_Hex(400, 10, key_value);
 
     // Map key value (each bit represents a key according to Table 1)
     // Bit 0: A, Bit 1: B, Bit 2: SELECT, Bit 3: START, Bit 4: UP, Bit 5: DOWN, Bit 6: LEFT, Bit 7: RIGHT

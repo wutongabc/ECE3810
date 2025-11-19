@@ -7,6 +7,10 @@
 
 #define LED0_PWM_VAL TIM3->CCR2
 
+// Global variables for JOYPAD handling
+volatile u8 joypad_current = 0;
+volatile u8 joypad_last = 0xFF;
+
 void EIE3810_TIM3_Init(u16 arr, u16 psc);
 void EIE3810_TIM4_Init(u16 arr, u16 psc);
 void TIM3_IRQHandler(void);
@@ -18,26 +22,35 @@ void JOYPAD_Delay(u16 t);
 u8 JOYPAD_Read(void);
 // void SysTick_Handler(void);
 void Delay(u32 nCount);
+void JOYPAD_Display_Key(u8 key_value);
 
 int main(void)
 {
     u16 LED0PWMVal = 0;
     u8 dir = 1;
+
     EIE3810_clock_tree_init();
     EIE3810_LED_Init();             // Initialize LED
-    EIE3810_TIM3_PWMInit(9999, 71); // Initialize TIM3 for PWM on DS0 (PB4) at 1kHz
+    EIE3810_TFTLCD_Init();          // Initialize LCD
+    EIE3810_TIM3_PWMInit(9999, 71); // Initialize TIM3 for PWM on DS0 (PB4) at 1kHz (not used for PWM anymore)
+    JOYPAD_Init();                  // Initialize JOYPAD
+
+    // Configure TIM3 to trigger interrupt at 100Hz for JOYPAD reading
+    // ARR = 9999, PSC = 71 gives frequency: 72MHz / (71+1) / (9999+1) ≈ 100Hz
+    EIE3810_TIM3_Init(9999, 71);
+
+    // Clear LCD and display initial message
+    EIE3810_TFTLCD_Clear(WHITE);
+    EIE3810_TFTLCD_ShowChar(10, 10, 'P', BLACK, WHITE);
+    EIE3810_TFTLCD_ShowChar(18, 10, 'R', BLACK, WHITE);
+    EIE3810_TFTLCD_ShowChar(26, 10, 'E', BLACK, WHITE);
+    EIE3810_TFTLCD_ShowChar(34, 10, 'S', BLACK, WHITE);
+    EIE3810_TFTLCD_ShowChar(42, 10, 'S', BLACK, WHITE);
+
     while (1)
     {
-        Delay(1500);
-        if (dir)
-            LED0PWMVal++; // Adjust brightness value
-        else
-            LED0PWMVal--; // Adjust brightness value
-        if (LED0PWMVal >= 5000)
-            dir = 0; // Change direction at max
-        if (LED0PWMVal == 0)
-            dir = 1;               // Change direction
-        LED0_PWM_VAL = LED0PWMVal; // Update PWM duty cycle
+        // CPU can do other tasks while JOYPAD is being read in interrupt
+        Delay(100000);
     }
 }
 
@@ -70,8 +83,18 @@ void EIE3810_TIM4_Init(u16 arr, u16 psc)
 void TIM3_IRQHandler(void)
 {
     if (TIM3->SR & (1 << 0))
-    {                          // Check update interrupt flag
-        GPIOB->ODR ^= 1 << 5;  // Toggle DS0 (PB5) only
+    { // Check update interrupt flag
+        // Read JOYPAD at 100Hz frequency
+        joypad_current = JOYPAD_Read();
+
+        // Check if key state has changed (key pressed down)
+        if (joypad_current != joypad_last)
+        {
+            joypad_last = joypad_current;
+            // Call display function to show which key was pressed
+            JOYPAD_Display_Key(joypad_current);
+        }
+
         TIM3->SR &= ~(1 << 0); // Clear update interrupt flag
     }
 }
@@ -159,4 +182,89 @@ u8 JOYPAD_Read(void)
         Delay(80);              // Delay before next bit
     }
     return temp;
+}
+
+// Display the pressed key name on LCD
+// According to Table 1: keys are at bit positions 0-7 for A, B, SELECT, START, UP, DOWN, LEFT, RIGHT
+void JOYPAD_Display_Key(u8 key_value)
+{
+    // Static variables to keep track of display position
+    static u16 display_x = 10;
+    static u16 display_y = 50;
+
+    u8 key_name[20] = "";
+
+    // Map key value (each bit represents a key according to Table 1)
+    // Bit 0: A, Bit 1: B, Bit 2: SELECT, Bit 3: START, Bit 4: UP, Bit 5: DOWN, Bit 6: LEFT, Bit 7: RIGHT
+    if ((key_value & 0x01) == 0) // Bit 0 is active (low)
+        key_name[0] = 'A';
+    else if ((key_value & 0x02) == 0) // Bit 1 is active (low)
+        key_name[0] = 'B';
+    else if ((key_value & 0x04) == 0) // Bit 2 is active (low)
+    {
+        EIE3810_TFTLCD_ShowChar(display_x, display_y, 'S', BLACK, WHITE);
+        EIE3810_TFTLCD_ShowChar(display_x + 8, display_y, 'E', BLACK, WHITE);
+        EIE3810_TFTLCD_ShowChar(display_x + 16, display_y, 'L', BLACK, WHITE);
+        display_x += 24;
+        return;
+    }
+    else if ((key_value & 0x08) == 0) // Bit 3 is active (low)
+    {
+        EIE3810_TFTLCD_ShowChar(display_x, display_y, 'S', BLACK, WHITE);
+        EIE3810_TFTLCD_ShowChar(display_x + 8, display_y, 'T', BLACK, WHITE);
+        EIE3810_TFTLCD_ShowChar(display_x + 16, display_y, 'A', BLACK, WHITE);
+        EIE3810_TFTLCD_ShowChar(display_x + 24, display_y, 'R', BLACK, WHITE);
+        display_x += 32;
+        return;
+    }
+    else if ((key_value & 0x10) == 0) // Bit 4 is active (low)
+    {
+        EIE3810_TFTLCD_ShowChar(display_x, display_y, 'U', BLACK, WHITE);
+        EIE3810_TFTLCD_ShowChar(display_x + 8, display_y, 'P', BLACK, WHITE);
+        display_x += 16;
+        return;
+    }
+    else if ((key_value & 0x20) == 0) // Bit 5 is active (low)
+    {
+        EIE3810_TFTLCD_ShowChar(display_x, display_y, 'D', BLACK, WHITE);
+        EIE3810_TFTLCD_ShowChar(display_x + 8, display_y, 'W', BLACK, WHITE);
+        display_x += 16;
+        return;
+    }
+    else if ((key_value & 0x40) == 0) // Bit 6 is active (low)
+    {
+        EIE3810_TFTLCD_ShowChar(display_x, display_y, 'L', BLACK, WHITE);
+        display_x += 8;
+        return;
+    }
+    else if ((key_value & 0x80) == 0) // Bit 7 is active (low)
+    {
+        EIE3810_TFTLCD_ShowChar(display_x, display_y, 'R', BLACK, WHITE);
+        display_x += 8;
+        return;
+    }
+    else
+    {
+        // No key is pressed (all bits are high)
+        return;
+    }
+
+    // Display single character key names
+    EIE3810_TFTLCD_ShowChar(display_x, display_y, key_name[0], BLACK, WHITE);
+    display_x += 8;
+
+    // Wrap to next line if needed
+    if (display_x > 400)
+    {
+        display_x = 10;
+        display_y += 20;
+    }
+
+    // Clear screen if y position exceeds display
+    if (display_y > 700)
+    {
+        EIE3810_TFTLCD_Clear(WHITE);
+        display_x = 10;
+        display_y = 50;
+    }
 }

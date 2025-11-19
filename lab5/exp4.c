@@ -21,8 +21,8 @@ int main(void)
     u16 LED0PWMVal = 0;
     u8 dir = 1;
     EIE3810_clock_tree_init();
-    EIE3810_LED_Init();              // Initialize LED
-    EIE3810_TIME3_PWMInit(9999, 71); // Initialize TIM3 for PWM on DS0 (PB4) at 1kHz
+    EIE3810_LED_Init();             // Initialize LED
+    EIE3810_TIM3_PWMInit(9999, 71); // Initialize TIM3 for PWM on DS0 (PB4) at 1kHz
     while (1)
     {
         Delay(1500);

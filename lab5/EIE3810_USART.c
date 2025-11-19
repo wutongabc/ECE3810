@@ -1,61 +1,5 @@
 #include "stm32f10x.h"
-void EIE3810_clock_tree_init(void);
-void EIE3810_USART2_init(u32, u32);
-void EIE3810_USART1_init(u32 pclk1, u32 baudrate);
-void Delay(u32);
-
-int main(void)
-{
-    EIE3810_clock_tree_init();
-    EIE3810_USART1_init(72, 9600);
-
-    // Wait approximately 1 second after RESET
-    Delay(7200000);
-
-    while (1)
-    {
-        // // Send student ID: 123090704 with simple delay method (no flag checking)
-        // USART1->DR = 0x31;
-        // Delay(10000);
-        // USART1->DR = 0x32;
-        // Delay(10000);
-        // USART1->DR = 0x33;
-        // Delay(10000);
-        // USART1->DR = 0x30;
-        // Delay(10000);
-        // USART1->DR = 0x39;
-        // Delay(10000);
-        // USART1->DR = 0x30;
-        // Delay(10000);
-        // USART1->DR = 0x37;
-        // Delay(10000);
-        // USART1->DR = 0x30;
-        // Delay(10000);
-        // USART1->DR = 0x34;
-        // Delay(10000);
-        USART_print(1, "1234567890");
-    }
-}
-
-void USART_print(u8 USARTport, char *str)
-{
-    u8 i = 0;
-    while (str[i] != 0x00)
-    {
-        if (USARTport == 1)
-        {
-            USART1->DR = str[i];
-        }
-        if (USARTport == 2)
-        {
-            USART2->DR = str[i];
-        }
-        Delay(50000);
-        if (i == 255)
-            break;
-        i++;
-    }
-}
+#include "EIE3810_USART.h"
 
 void EIE3810_clock_tree_init(void)
 {
@@ -109,7 +53,7 @@ void EIE3810_USART2_init(u32 pclk1, u32 baudrate)
     USART2->CR1 = 0x2008;        // enable transmitter, disable parity and inhibit interrupt
 }
 
-void EIE3810_USART1_init(u32 pclk2, u32 baudrate)
+void EIE3810_USART1_init(u32 pclk1, u32 baudrate)
 {
     // USART1 on APB2
     float temp;
@@ -117,7 +61,7 @@ void EIE3810_USART1_init(u32 pclk2, u32 baudrate)
     u16 fraction;
 
     // Calculate baud rate register value
-    temp = (float)(pclk2 * 1000000) / (baudrate * 16);
+    temp = (float)(pclk1 * 1000000) / (baudrate * 16);
     mantissa = temp;
     fraction = (temp - mantissa) * 16;
     mantissa <<= 4;
@@ -144,5 +88,44 @@ void EIE3810_USART1_init(u32 pclk2, u32 baudrate)
 
     USART1->CR1 |= (1 << 3);  // TE: Transmitter Enable
     USART1->CR1 |= (1 << 2);  // RE: Receiver Enable
+    USART1->CR1 |= (1 << 5);  // RXNEIE: RXNE Interrupt Enable (Receive interrupt)
     USART1->CR1 |= (1 << 13); // UE: USART Enable (MUST be last!)
+}
+
+void USART_print(u8 USARTport, char *str)
+{
+    u8 i = 0;
+    while (str[i] != 0x00)
+    {
+        if (USARTport == 1)
+        {
+            USART1->DR = str[i];
+        }
+        if (USARTport == 2)
+        {
+            USART2->DR = str[i];
+        }
+        // Delay(50000);
+        //  checks the TXE flag in the SR register
+        if (USARTport == 1)
+        {
+            while (!((USART1->SR >> 7) & 0x1))
+                ;
+        }
+        if (USARTport == 2)
+        {
+            while (!((USART2->SR >> 7) & 0x1))
+                ;
+        }
+
+        if (i == 255)
+            break;
+        i++;
+    }
+}
+
+void EIE3810_USART1_EXTIInit(void)
+{
+    NVIC->IP[37] = 0x65;     // Set priority for USART1 interrupt
+    NVIC->ISER[1] |= 1 << 5; // Enable USART1 interrupt in NVIC
 }

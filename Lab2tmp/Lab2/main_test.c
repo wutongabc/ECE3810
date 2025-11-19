@@ -45,11 +45,11 @@ void USART_print(u8 USARTport, char *str)
     {
         if (USARTport == 1)
         {
-            USART1 - DR = str[i];
+            USART1->DR = str[i];
         }
         if (USARTport == 2)
         {
-            USART2 - DR = str[i];
+            USART2->DR = str[i];
         }
         Delay(50000);
         if (i == 255)

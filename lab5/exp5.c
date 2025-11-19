@@ -208,13 +208,14 @@ void JOYPAD_Display_Key(u8 key_value)
     // Display the hex value for debugging (top right corner)
     Display_Hex(400, 10, key_value);
 
-    // Map key value (each bit represents a key according to Table 1)
+    // Map key value (each bit represents a key)
     // Bit 0: A, Bit 1: B, Bit 2: SELECT, Bit 3: START, Bit 4: UP, Bit 5: DOWN, Bit 6: LEFT, Bit 7: RIGHT
-    if ((key_value & 0x01) == 0) // Bit 0 is active (low)
+    // Note: When pressed, bit is HIGH (1), not LOW (0)
+    if (key_value & 0x01) // Bit 0 is active (high)
         key_name[0] = 'A';
-    else if ((key_value & 0x02) == 0) // Bit 1 is active (low)
+    else if (key_value & 0x02) // Bit 1 is active (high)
         key_name[0] = 'B';
-    else if ((key_value & 0x04) == 0) // Bit 2 is active (low)
+    else if (key_value & 0x04) // Bit 2 is active (high)
     {
         EIE3810_TFTLCD_ShowChar(display_x, display_y, 'S', BLACK, WHITE);
         EIE3810_TFTLCD_ShowChar(display_x + 8, display_y, 'E', BLACK, WHITE);
@@ -222,44 +223,54 @@ void JOYPAD_Display_Key(u8 key_value)
         display_x += 24;
         return;
     }
-    else if ((key_value & 0x08) == 0) // Bit 3 is active (low)
+    else if (key_value & 0x08) // Bit 3 is active (high)
     {
         EIE3810_TFTLCD_ShowChar(display_x, display_y, 'S', BLACK, WHITE);
         EIE3810_TFTLCD_ShowChar(display_x + 8, display_y, 'T', BLACK, WHITE);
         EIE3810_TFTLCD_ShowChar(display_x + 16, display_y, 'A', BLACK, WHITE);
         EIE3810_TFTLCD_ShowChar(display_x + 24, display_y, 'R', BLACK, WHITE);
-        display_x += 32;
+        EIE3810_TFTLCD_ShowChar(display_x + 28, display_y, 'T', BLACK, WHITE);
+        display_x += 40;
         return;
     }
-    else if ((key_value & 0x10) == 0) // Bit 4 is active (low)
+    else if (key_value & 0x10) // Bit 4 is active (high)
     {
         EIE3810_TFTLCD_ShowChar(display_x, display_y, 'U', BLACK, WHITE);
         EIE3810_TFTLCD_ShowChar(display_x + 8, display_y, 'P', BLACK, WHITE);
         display_x += 16;
         return;
     }
-    else if ((key_value & 0x20) == 0) // Bit 5 is active (low)
+    else if (key_value & 0x20) // Bit 5 is active (high)
     {
         EIE3810_TFTLCD_ShowChar(display_x, display_y, 'D', BLACK, WHITE);
-        EIE3810_TFTLCD_ShowChar(display_x + 8, display_y, 'W', BLACK, WHITE);
-        display_x += 16;
+        EIE3810_TFTLCD_ShowChar(display_x + 8, display_y, 'O', BLACK, WHITE);
+        EIE3810_TFTLCD_ShowChar(display_x + 16, display_y, 'W', BLACK, WHITE);
+        EIE3810_TFTLCD_ShowChar(display_x + 24, display_y, 'N', BLACK, WHITE);
+        display_x += 32;
         return;
     }
-    else if ((key_value & 0x40) == 0) // Bit 6 is active (low)
+    else if (key_value & 0x40) // Bit 6 is active (high)
     {
         EIE3810_TFTLCD_ShowChar(display_x, display_y, 'L', BLACK, WHITE);
-        display_x += 8;
+        EIE3810_TFTLCD_ShowChar(display_x + 8, display_y, 'E', BLACK, WHITE);
+        EIE3810_TFTLCD_ShowChar(display_x + 16, display_y, 'F', BLACK, WHITE);
+        EIE3810_TFTLCD_ShowChar(display_x + 24, display_y, 'T', BLACK, WHITE);
+        display_x += 32;
         return;
     }
-    else if ((key_value & 0x80) == 0) // Bit 7 is active (low)
+    else if (key_value & 0x80) // Bit 7 is active (high)
     {
         EIE3810_TFTLCD_ShowChar(display_x, display_y, 'R', BLACK, WHITE);
-        display_x += 8;
+        EIE3810_TFTLCD_ShowChar(display_x + 8, display_y, 'I', BLACK, WHITE);
+        EIE3810_TFTLCD_ShowChar(display_x + 16, display_y, 'G', BLACK, WHITE);
+        EIE3810_TFTLCD_ShowChar(display_x + 24, display_y, 'H', BLACK, WHITE);
+        EIE3810_TFTLCD_ShowChar(display_x + 32, display_y, 'T', BLACK, WHITE);
+        display_x += 40;
         return;
     }
     else
     {
-        // No key is pressed (all bits are high)
+        // No key is pressed (value is 0x00)
         return;
     }
 

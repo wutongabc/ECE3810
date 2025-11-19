@@ -4,6 +4,7 @@
 #include "EIE3810_EXTI.h"
 #include "EIE3810_LED.h"
 #include "EIE3810_USART.h"
+#include "EIE3810_Debug.h"
 
 #define LED0_PWM_VAL TIM3->CCR2
 
@@ -102,12 +103,10 @@ void TIM3_IRQHandler(void)
     }
 }
 
-// Helper function to display hex value for debugging
+// Helper function to display hex value for debugging (now using Debug module)
 void Display_Hex(u16 x, u16 y, u8 value)
 {
-    const char hex_chars[] = "0123456789ABCDEF";
-    EIE3810_TFTLCD_ShowChar(x, y, hex_chars[(value >> 4) & 0x0F], RED, WHITE);
-    EIE3810_TFTLCD_ShowChar(x + 8, y, hex_chars[value & 0x0F], RED, WHITE);
+    EIE3810_Debug_ShowHex(x, y, value, 2, RED, WHITE);
 }
 
 void TIM4_IRQHandler(void)

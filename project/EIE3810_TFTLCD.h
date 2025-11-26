@@ -24,5 +24,7 @@ void EIE3810_TFTLCD_Clear(u16 color);
 void EIE3810_TFTLCD_FillRectangle(u16 x1, u16 y1, u16 x2, u16 y2, u16 color);
 void EIE3810_TFTLCD_SevenSegment(u16 start_x, u16 start_y, u8 digit, u16 color);
 void EIE3810_TFTLCD_ShowChar(u16 x, u16 y, u8 ASCII, u16 color, u16 bgcolor);
+void EIE3810_TFTLCD_DrawCircle(u16 x0, u16 y0, u8 r, u8 full, u16 color);
+void EIE3810_TFTLCD_ShowChar2412(u16 x, u16 y, u8 ascii, u16 color, u16 bgcolor);
 
 #endif

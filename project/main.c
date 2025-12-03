@@ -5,7 +5,6 @@
 #include "EIE3810_USART.h"
 #include "EIE3810_LED.h"
 #include "EIE3810_Buzzer.h"
-#include "EIE3810_Debug.h"
 
 #define MY_BAUD_RATE 4800
 
@@ -44,23 +43,20 @@ void Delay(u32 count) {
 
 // System Initialization
 void System_Init(void) {
-    // Initialize System Clock (usually handled by startup code, but we can ensure peripherals are enabled)
-    // If EIE3810_clock_tree_init() exists in USART.h/c, it might be used here, but often SystemInit() is automatic.
-    // Assuming standard library setup.
+    // Initialize System Clock to 72MHz
+    EIE3810_clock_tree_init();
     
     // Initialize Peripherals
-    EIE3810_Key_init();      // Note: Lowercase 'i' based on actual header
+    EIE3810_Key_Init();      // Note: Uppercase 'I' standard
     EIE3810_LED_Init();
-    EIE3810_Buzzer_init();   // Note: Lowercase 'i' based on actual header
+    EIE3810_Buzzer_Init();   // Note: Uppercase 'I' standard
     
     // Phase 2 Initialization
     EIE3810_USART1_init(72, MY_BAUD_RATE);
-    EIE3810_USART1_EXTIInit();
+    // EIE3810_USART1_EXTIInit(); // DISABLE INTERRUPT FOR POLLING DEBUG
 
-    // this must be initialized after the USART is initialized
-    // otherwise the JOYPAD and showing char will not work
-    EIE3810_TFTLCD_Init();
     JOYPAD_Init();
+    EIE3810_TFTLCD_Init();
 
 }
 
@@ -194,6 +190,12 @@ int main(void) {
                     show_wait_msg = 0;
                 }
                 
+                // POLLING MODE: Check RXNE bit directly
+                if (USART1->SR & (1 << 5)) { // Check RXNE
+                    random_seed = USART1->DR;
+                    seed_received = 1;
+                }
+                
                 if (seed_received) {
                     // Show Received Seed
                     EIE3810_TFTLCD_Clear(WHITE);
@@ -221,9 +223,8 @@ int main(void) {
 }
 
 // Interrupt Handlers
-
+/*
 void USART1_IRQHandler(void) {
-    EIE3810_Debug_Printf(10, 10, BLACK, WHITE, "USART1_IRQHandler");
     // Check if RXNE (Read Data Register Not Empty) flag is set
     if (USART1->SR & (1 << 5)) {
         // Read data (this clears the RXNE bit)
@@ -231,3 +232,4 @@ void USART1_IRQHandler(void) {
         seed_received = 1;
     }
 }
+*/

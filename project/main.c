@@ -49,10 +49,10 @@ void System_Init(void) {
     
     // Initialize Peripherals
     EIE3810_TFTLCD_Init();
-    EIE3810_Key_Init();      // Note: Uppercase 'I' standard
+    EIE3810_Key_init();      // Note: Lowercase 'i' based on actual header
     JOYPAD_Init();
     EIE3810_LED_Init();
-    EIE3810_Buzzer_Init();   // Note: Uppercase 'I' standard
+    EIE3810_Buzzer_init();   // Note: Lowercase 'i' based on actual header
     
     // Phase 2 Initialization
     EIE3810_USART1_init(72, MY_BAUD_RATE);

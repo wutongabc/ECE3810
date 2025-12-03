@@ -6,6 +6,8 @@
 #include "EIE3810_LED.h"
 #include "EIE3810_Buzzer.h"
 
+#define MY_BAUD_RATE 4800
+
 // Game States
 typedef enum {
     WELCOME,
@@ -26,6 +28,10 @@ typedef enum {
 GameState current_state = WELCOME;
 Difficulty current_difficulty = DIFF_EASY;
 
+// Phase 2 Global Variables
+volatile u8 random_seed = 0;
+volatile u8 seed_received = 0;
+
 // Helper Functions
 
 // Simple delay function
@@ -43,12 +49,14 @@ void System_Init(void) {
     
     // Initialize Peripherals
     EIE3810_TFTLCD_Init();
-    EIE3810_Key_init();      // Note: lowercase 'i' based on header
+    EIE3810_Key_Init();      // Note: Uppercase 'I' standard
     JOYPAD_Init();
     EIE3810_LED_Init();
-    EIE3810_Buzzer_init();   // Note: lowercase 'i' based on header
+    EIE3810_Buzzer_Init();   // Note: Uppercase 'I' standard
     
-    // USART init will be done in Phase 2
+    // Phase 2 Initialization
+    EIE3810_USART1_init(72, MY_BAUD_RATE);
+    EIE3810_USART1_EXTIInit();
 }
 
 // Draw Welcome Screen
@@ -116,6 +124,7 @@ void Draw_Difficulty(Difficulty diff) {
 int main(void) {
     u8 joy_val;
     u8 prev_joy_val = 0;
+    u8 show_wait_msg = 1; // Flag to show wait message once
     
     System_Init();
     
@@ -124,7 +133,6 @@ int main(void) {
             case WELCOME:
                 Draw_Welcome();
                 // Wait for approx 2 seconds
-                // Adjust delay count based on clock speed (approximate)
                 Delay(20000000); 
                 
                 // Auto jump to DIFFICULTY
@@ -136,9 +144,6 @@ int main(void) {
             case DIFFICULTY:
                 // Read Joypad
                 joy_val = JOYPAD_Read();
-                
-                // Simple debounce logic could be added here or inside read
-                // For now, using state change detection to avoid rapid toggling
                 
                 if (joy_val != prev_joy_val && joy_val != 0) {
                     // Bit 4: UP
@@ -159,13 +164,8 @@ int main(void) {
                     else if (joy_val & 0x04) {
                         current_state = WAIT_SEED;
                         EIE3810_TFTLCD_Clear(WHITE);
-                        // Show "Enter Phase 2"
-                        EIE3810_TFTLCD_ShowChar(50, 100, 'P', BLACK, WHITE);
-                        EIE3810_TFTLCD_ShowChar(58, 100, 'H', BLACK, WHITE);
-                        EIE3810_TFTLCD_ShowChar(66, 100, 'A', BLACK, WHITE);
-                        EIE3810_TFTLCD_ShowChar(74, 100, 'S', BLACK, WHITE);
-                        EIE3810_TFTLCD_ShowChar(82, 100, 'E', BLACK, WHITE);
-                        EIE3810_TFTLCD_ShowChar(98, 100, '2', BLACK, WHITE);
+                        show_wait_msg = 1; // Reset display flag
+                        seed_received = 0; // Reset seed flag
                     }
                     
                     Delay(1000000); // Small debounce delay
@@ -174,17 +174,54 @@ int main(void) {
                 break;
                 
             case WAIT_SEED:
-                // Waiting for implementation in Phase 2
-                // Just loop here for now
-                Delay(100000);
+                if (show_wait_msg) {
+                    // Show "Waiting for PC..."
+                    EIE3810_TFTLCD_ShowChar(20, 100, 'W', BLACK, WHITE);
+                    EIE3810_TFTLCD_ShowChar(28, 100, 'a', BLACK, WHITE);
+                    EIE3810_TFTLCD_ShowChar(36, 100, 'i', BLACK, WHITE);
+                    EIE3810_TFTLCD_ShowChar(44, 100, 't', BLACK, WHITE);
+                    EIE3810_TFTLCD_ShowChar(52, 100, 'i', BLACK, WHITE);
+                    EIE3810_TFTLCD_ShowChar(60, 100, 'n', BLACK, WHITE);
+                    EIE3810_TFTLCD_ShowChar(68, 100, 'g', BLACK, WHITE);
+                    EIE3810_TFTLCD_ShowChar(76, 100, '.', BLACK, WHITE);
+                    EIE3810_TFTLCD_ShowChar(84, 100, '.', BLACK, WHITE);
+                    EIE3810_TFTLCD_ShowChar(92, 100, '.', BLACK, WHITE);
+                    show_wait_msg = 0;
+                }
+                
+                if (seed_received) {
+                    // Show Received Seed
+                    EIE3810_TFTLCD_Clear(WHITE);
+                    EIE3810_TFTLCD_ShowChar(50, 100, 'S', BLACK, WHITE);
+                    EIE3810_TFTLCD_ShowChar(58, 100, 'e', BLACK, WHITE);
+                    EIE3810_TFTLCD_ShowChar(66, 100, 'e', BLACK, WHITE);
+                    EIE3810_TFTLCD_ShowChar(74, 100, 'd', BLACK, WHITE);
+                    EIE3810_TFTLCD_ShowChar(82, 100, ':', BLACK, WHITE);
+                    
+                    // Show number (0-9 assumption for single digit seed)
+                    EIE3810_TFTLCD_ShowChar(98, 100, random_seed + '0', RED, WHITE);
+                    
+                    Delay(20000000); // Wait for player to see
+                    current_state = COUNTDOWN;
+                }
                 break;
                 
             case COUNTDOWN:
             case PLAYING:
             case GAMEOVER:
-                // Placeholder for future states
+                // Placeholder for Phase 3
                 break;
         }
     }
 }
 
+// Interrupt Handlers
+
+void USART1_IRQHandler(void) {
+    // Check if RXNE (Read Data Register Not Empty) flag is set
+    if (USART1->SR & (1 << 5)) {
+        // Read data (this clears the RXNE bit)
+        random_seed = USART1->DR;
+        seed_received = 1;
+    }
+}

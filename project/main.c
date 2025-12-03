@@ -5,6 +5,7 @@
 #include "EIE3810_USART.h"
 #include "EIE3810_LED.h"
 #include "EIE3810_Buzzer.h"
+#include "EIE3810_Debug.h"
 
 #define MY_BAUD_RATE 4800
 
@@ -222,6 +223,7 @@ int main(void) {
 // Interrupt Handlers
 
 void USART1_IRQHandler(void) {
+    EIE3810_Debug_Printf(10, 10, BLACK, WHITE, "USART1_IRQHandler");
     // Check if RXNE (Read Data Register Not Empty) flag is set
     if (USART1->SR & (1 << 5)) {
         // Read data (this clears the RXNE bit)

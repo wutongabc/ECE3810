@@ -6,7 +6,15 @@
 #include "EIE3810_LED.h"
 #include "EIE3810_Buzzer.h"
 
+// Phase 3 Game Constants
 #define MY_BAUD_RATE 4800
+#define SCREEN_WIDTH 480
+#define SCREEN_HEIGHT 800
+#define PADDLE_WIDTH 100
+#define PADDLE_HEIGHT 10
+#define BALL_RADIUS 8
+#define PADDLE_Y_TOP 50       // Player B
+#define PADDLE_Y_BOTTOM 750   // Player A
 
 // Game States
 typedef enum {
@@ -24,20 +32,45 @@ typedef enum {
     DIFF_HARD
 } Difficulty;
 
+// Structures
+typedef struct {
+    s16 x, y;
+    s16 vx, vy;
+    s16 last_x, last_y; // For partial redraw
+} Ball;
+
+typedef struct {
+    s16 x;
+    s16 last_x;         // For partial redraw
+} Paddle;
+
 // Global Variables
 GameState current_state = WELCOME;
 Difficulty current_difficulty = DIFF_EASY;
 
-// Phase 2 Global Variables
+// Phase 2 Globals
 volatile u8 random_seed = 0;
 volatile u8 seed_received = 0;
 
+// Phase 3 Game Objects
+Ball ball;
+Paddle paddle_top;    // Player B
+Paddle paddle_bottom; // Player A
+u8 winner = 0; // 0: None, 1: Player A (Bottom), 2: Player B (Top)
+
+
 // Helper Functions
 
-// Simple delay function
 void Delay(u32 count) {
-    while(count--) {
-        // Empty loop for delay
+    while(count--);
+}
+
+// Draw a simple string (helper wrapper)
+void DrawString(u16 x, u16 y, char *str, u16 color, u16 bgcolor) {
+    while (*str) {
+        EIE3810_TFTLCD_ShowChar(x, y, *str, color, bgcolor);
+        x += 8; 
+        str++;
     }
 }
 
@@ -47,85 +80,99 @@ void System_Init(void) {
     EIE3810_clock_tree_init();
     
     // Initialize Peripherals
-    EIE3810_Key_Init();      // Note: Uppercase 'I' standard
+    EIE3810_Key_Init();
     EIE3810_LED_Init();
-    EIE3810_Buzzer_Init();   // Note: Uppercase 'I' standard
-    
-    // Phase 2 Initialization
+    EIE3810_Buzzer_Init();
     EIE3810_USART1_init(72, MY_BAUD_RATE);
-    // EIE3810_USART1_EXTIInit(); // DISABLE INTERRUPT FOR POLLING DEBUG
-
     JOYPAD_Init();
     EIE3810_TFTLCD_Init();
-
 }
 
-// Draw Welcome Screen
-void Draw_Welcome(void) {
-    EIE3810_TFTLCD_Clear(WHITE); // Clear screen with white background
-    EIE3810_TFTLCD_ShowChar(50, 100, 'W', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(58, 100, 'E', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(66, 100, 'L', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(74, 100, 'C', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(82, 100, 'O', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(90, 100, 'M', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(98, 100, 'E', BLACK, WHITE);
+// Initialize Game Objects for a new round
+void Game_Reset(void) {
+    // Center Ball
+    ball.x = SCREEN_WIDTH / 2;
+    ball.y = SCREEN_HEIGHT / 2;
+    ball.last_x = ball.x;
+    ball.last_y = ball.y;
     
-    // Show "ECE3080 Project"
-    // Using simple char display for now
+    // Set Speed based on Difficulty
+    if (current_difficulty == DIFF_EASY) {
+        ball.vx = 3;
+        ball.vy = 3; // Initially moves down-right
+    } else {
+        ball.vx = 6;
+        ball.vy = 6;
+    }
+    
+    // Center Paddles
+    paddle_top.x = (SCREEN_WIDTH - PADDLE_WIDTH) / 2;
+    paddle_top.last_x = paddle_top.x;
+    
+    paddle_bottom.x = (SCREEN_WIDTH - PADDLE_WIDTH) / 2;
+    paddle_bottom.last_x = paddle_bottom.x;
 }
 
-// Draw Difficulty Selection Screen
+// Draw Functions
+void Draw_Welcome(void) {
+    EIE3810_TFTLCD_Clear(WHITE); 
+    DrawString(180, 350, "WELCOME", BLACK, WHITE);
+    DrawString(160, 380, "ECE3080 PROJECT", BLUE, WHITE);
+}
+
 void Draw_Difficulty(Difficulty diff) {
     EIE3810_TFTLCD_Clear(WHITE);
+    DrawString(160, 200, "SELECT DIFFICULTY", BLACK, WHITE);
     
-    // Draw Title
-    // "SELECT DIFFICULTY"
-    EIE3810_TFTLCD_ShowChar(20, 50, 'S', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(28, 50, 'E', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(36, 50, 'L', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(44, 50, 'E', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(52, 50, 'C', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(60, 50, 'T', BLACK, WHITE);
-    
-    // Colors for selection
     u16 easy_bg = (diff == DIFF_EASY) ? YELLOW : WHITE;
     u16 hard_bg = (diff == DIFF_HARD) ? YELLOW : WHITE;
     
-    // Option 1: EASY
-    EIE3810_TFTLCD_FillRectangle(50, 100, 150, 130, easy_bg);
-    EIE3810_TFTLCD_ShowChar(60, 105, 'E', BLACK, easy_bg);
-    EIE3810_TFTLCD_ShowChar(68, 105, 'A', BLACK, easy_bg);
-    EIE3810_TFTLCD_ShowChar(76, 105, 'S', BLACK, easy_bg);
-    EIE3810_TFTLCD_ShowChar(84, 105, 'Y', BLACK, easy_bg);
+    EIE3810_TFTLCD_FillRectangle(140, 300, 340, 350, easy_bg);
+    DrawString(220, 315, "EASY", BLACK, easy_bg);
     
-    // Option 2: HARD
-    EIE3810_TFTLCD_FillRectangle(50, 150, 150, 180, hard_bg);
-    EIE3810_TFTLCD_ShowChar(60, 155, 'H', BLACK, hard_bg);
-    EIE3810_TFTLCD_ShowChar(68, 155, 'A', BLACK, hard_bg);
-    EIE3810_TFTLCD_ShowChar(76, 155, 'R', BLACK, hard_bg);
-    EIE3810_TFTLCD_ShowChar(84, 155, 'D', BLACK, hard_bg);
+    EIE3810_TFTLCD_FillRectangle(140, 400, 340, 450, hard_bg);
+    DrawString(220, 415, "HARD", BLACK, hard_bg);
     
-    // Instruction
-    EIE3810_TFTLCD_ShowChar(20, 250, 'U', BLACK, WHITE); // UP
-    EIE3810_TFTLCD_ShowChar(28, 250, '/', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(36, 250, 'D', BLACK, WHITE); // DOWN
-    EIE3810_TFTLCD_ShowChar(44, 250, 'W', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(52, 250, 'N', BLACK, WHITE);
-    
-    EIE3810_TFTLCD_ShowChar(20, 270, 'S', BLACK, WHITE); // SEL
-    EIE3810_TFTLCD_ShowChar(28, 270, 'E', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(36, 270, 'L', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(44, 270, '-', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(52, 270, '>', BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(60, 270, 'O', BLACK, WHITE); // OK
-    EIE3810_TFTLCD_ShowChar(68, 270, 'K', BLACK, WHITE);
+    DrawString(140, 600, "UP/DOWN TO MOVE", BLACK, WHITE);
+    DrawString(140, 620, "SEL TO CONFIRM", BLACK, WHITE);
 }
+
+// Partial Redraw for Game Loop
+void Draw_Game_Update(void) {
+    // 1. Erase Old Objects (Draw with Background Color WHITE)
+    
+    // Erase Old Ball
+    EIE3810_TFTLCD_DrawCircle(ball.last_x, ball.last_y, BALL_RADIUS, 1, WHITE);
+    
+    // Erase Old Paddles
+    if (paddle_top.x != paddle_top.last_x) {
+        EIE3810_TFTLCD_FillRectangle(paddle_top.last_x, PADDLE_Y_TOP, paddle_top.last_x + PADDLE_WIDTH, PADDLE_Y_TOP + PADDLE_HEIGHT, WHITE);
+    }
+    if (paddle_bottom.x != paddle_bottom.last_x) {
+        EIE3810_TFTLCD_FillRectangle(paddle_bottom.last_x, PADDLE_Y_BOTTOM, paddle_bottom.last_x + PADDLE_WIDTH, PADDLE_Y_BOTTOM + PADDLE_HEIGHT, WHITE);
+    }
+
+    // 2. Draw New Objects
+    
+    // Draw New Ball
+    EIE3810_TFTLCD_DrawCircle(ball.x, ball.y, BALL_RADIUS, 1, RED);
+    
+    // Draw New Paddles
+    EIE3810_TFTLCD_FillRectangle(paddle_top.x, PADDLE_Y_TOP, paddle_top.x + PADDLE_WIDTH, PADDLE_Y_TOP + PADDLE_HEIGHT, BLUE);
+    EIE3810_TFTLCD_FillRectangle(paddle_bottom.x, PADDLE_Y_BOTTOM, paddle_bottom.x + PADDLE_WIDTH, PADDLE_Y_BOTTOM + PADDLE_HEIGHT, BLUE);
+
+    // 3. Update Last Positions
+    ball.last_x = ball.x;
+    ball.last_y = ball.y;
+    paddle_top.last_x = paddle_top.x;
+    paddle_bottom.last_x = paddle_bottom.x;
+}
+
 
 int main(void) {
     u8 joy_val;
     u8 prev_joy_val = 0;
-    u8 show_wait_msg = 1; // Flag to show wait message once
+    u8 show_wait_msg = 1; 
     
     System_Init();
     
@@ -133,103 +180,192 @@ int main(void) {
         switch(current_state) {
             case WELCOME:
                 Draw_Welcome();
-                // Wait for approx 2 seconds
                 Delay(20000000); 
-                
-                // Auto jump to DIFFICULTY
                 current_state = DIFFICULTY;
-                // Initial draw for difficulty screen
                 Draw_Difficulty(current_difficulty);
                 break;
                 
             case DIFFICULTY:
-                // Read Joypad
                 joy_val = JOYPAD_Read();
-                
                 if (joy_val != prev_joy_val && joy_val != 0) {
-                    // Bit 4: UP
-                    if (joy_val & 0x10) { 
+                    if (joy_val & 0x10) { // UP
                         if (current_difficulty == DIFF_HARD) {
                             current_difficulty = DIFF_EASY;
                             Draw_Difficulty(current_difficulty);
                         }
                     }
-                    // Bit 5: DOWN
-                    else if (joy_val & 0x20) {
+                    else if (joy_val & 0x20) { // DOWN
                         if (current_difficulty == DIFF_EASY) {
                             current_difficulty = DIFF_HARD;
                             Draw_Difficulty(current_difficulty);
                         }
                     }
-                    // Bit 2: SELECT
-                    else if (joy_val & 0x04) {
+                    else if (joy_val & 0x04) { // SELECT
                         current_state = WAIT_SEED;
                         EIE3810_TFTLCD_Clear(WHITE);
-                        show_wait_msg = 1; // Reset display flag
-                        seed_received = 0; // Reset seed flag
+                        show_wait_msg = 1; 
+                        seed_received = 0; 
                     }
-                    
-                    Delay(1000000); // Small debounce delay
+                    Delay(1000000); 
                 }
                 prev_joy_val = joy_val;
                 break;
                 
             case WAIT_SEED:
                 if (show_wait_msg) {
-                    // Show "Waiting for PC..."
-                    EIE3810_TFTLCD_ShowChar(20, 100, 'W', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(28, 100, 'a', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(36, 100, 'i', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(44, 100, 't', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(52, 100, 'i', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(60, 100, 'n', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(68, 100, 'g', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(76, 100, '.', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(84, 100, '.', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(92, 100, '.', BLACK, WHITE);
+                    DrawString(180, 400, "WAITING FOR PC...", BLACK, WHITE);
                     show_wait_msg = 0;
                 }
-                
-                // POLLING MODE: Check RXNE bit directly
-                if (USART1->SR & (1 << 5)) { // Check RXNE
+                // Polling Check
+                if (USART1->SR & (1 << 5)) { 
                     random_seed = USART1->DR;
                     seed_received = 1;
                 }
                 
                 if (seed_received) {
-                    // Show Received Seed
+                    // Just clear and go, ignoring value display for speed
                     EIE3810_TFTLCD_Clear(WHITE);
-                    EIE3810_TFTLCD_ShowChar(50, 100, 'S', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(58, 100, 'e', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(66, 100, 'e', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(74, 100, 'd', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(82, 100, ':', BLACK, WHITE);
-                    
-                    // Show number (0-9 assumption for single digit seed)
-                    EIE3810_TFTLCD_ShowChar(98, 100, random_seed + '0', RED, WHITE);
-                    
-                    Delay(20000000); // Wait for player to see
                     current_state = COUNTDOWN;
                 }
                 break;
                 
             case COUNTDOWN:
+                Game_Reset(); // Init physics
+                
+                DrawString(230, 400, "3", RED, WHITE);
+                Delay(10000000);
+                DrawString(230, 400, "2", RED, WHITE);
+                Delay(10000000);
+                DrawString(230, 400, "1", RED, WHITE);
+                Delay(10000000);
+                DrawString(230, 400, "GO!", RED, WHITE);
+                Delay(10000000);
+                
+                EIE3810_TFTLCD_Clear(WHITE); // Clean slate for game
+                current_state = PLAYING;
+                break;
+                
             case PLAYING:
+                // --- INPUT HANDLING ---
+                
+                // Player A (Bottom) - Board Keys
+                // Key2 (Left), Key0 (Right) - Assuming mapping, adjust if needed
+                // Note: KEY2 is usually bit 2 in IDR? Using library function usually returns 0 or 1.
+                // Assuming polling GPIO directly or using Key_Scan if available. 
+                // Let's use direct GPIO check based on typical schematics (Key0=PE4, Key2=PE2 usually, or similar)
+                // BUT we have EIE3810_Key.h. Let's assume standard checks or direct register for speed.
+                // Assuming: Key0 is PE4, Key2 is PE2? Or KEY_UP is PA0?
+                // For simplicity, let's try direct register read if we know pins, or just use placeholders.
+                // Handout says Key2 and Key0. Let's assume Key0=Right, Key2=Left.
+                // PE4 = Key0, PE2 = Key2. (Active Low usually)
+                
+                if ((GPIOE->IDR & (1<<2)) == 0) { // Key2 Pressed (Left)
+                    paddle_bottom.x -= 10;
+                }
+                if ((GPIOE->IDR & (1<<4)) == 0) { // Key0 Pressed (Right)
+                    paddle_bottom.x += 10;
+                }
+                
+                // Player B (Top) - Joypad
+                joy_val = JOYPAD_Read();
+                if (joy_val & 0x40) { // LEFT (Bit 6)
+                    paddle_top.x -= 10;
+                }
+                if (joy_val & 0x80) { // RIGHT (Bit 7)
+                    paddle_top.x += 10;
+                }
+                
+                // Boundary Checks for Paddles
+                if (paddle_bottom.x < 0) paddle_bottom.x = 0;
+                if (paddle_bottom.x > SCREEN_WIDTH - PADDLE_WIDTH) paddle_bottom.x = SCREEN_WIDTH - PADDLE_WIDTH;
+                
+                if (paddle_top.x < 0) paddle_top.x = 0;
+                if (paddle_top.x > SCREEN_WIDTH - PADDLE_WIDTH) paddle_top.x = SCREEN_WIDTH - PADDLE_WIDTH;
+                
+                // --- PHYSICS UPDATE ---
+                
+                ball.x += ball.vx;
+                ball.y += ball.vy;
+                
+                // Wall Collisions (Left/Right)
+                if (ball.x <= BALL_RADIUS || ball.x >= SCREEN_WIDTH - BALL_RADIUS) {
+                    ball.vx = -ball.vx;
+                }
+                
+                // Paddle Collisions
+                
+                // Top Paddle (Player B)
+                if (ball.y - BALL_RADIUS <= PADDLE_Y_TOP + PADDLE_HEIGHT && ball.y - BALL_RADIUS >= PADDLE_Y_TOP) {
+                    if (ball.x >= paddle_top.x && ball.x <= paddle_top.x + PADDLE_WIDTH) {
+                        ball.vy = -ball.vy; // Bounce
+                        // Move out of collision to prevent sticking
+                        ball.y = PADDLE_Y_TOP + PADDLE_HEIGHT + BALL_RADIUS + 1; 
+                        
+                        EIE3810_Buzzer_On();
+                        Delay(50000); // Short beep
+                        EIE3810_Buzzer_Off();
+                    }
+                }
+                
+                // Bottom Paddle (Player A)
+                if (ball.y + BALL_RADIUS >= PADDLE_Y_BOTTOM && ball.y + BALL_RADIUS <= PADDLE_Y_BOTTOM + PADDLE_HEIGHT) {
+                    if (ball.x >= paddle_bottom.x && ball.x <= paddle_bottom.x + PADDLE_WIDTH) {
+                        ball.vy = -ball.vy; // Bounce
+                        // Move out of collision
+                        ball.y = PADDLE_Y_BOTTOM - BALL_RADIUS - 1;
+                        
+                        EIE3810_Buzzer_On();
+                        Delay(50000); // Short beep
+                        EIE3810_Buzzer_Off();
+                    }
+                }
+                
+                // Win/Loss Condition
+                if (ball.y < 0) {
+                    // Top boundary crossed -> Bottom Player A Wins
+                    winner = 1;
+                    current_state = GAMEOVER;
+                }
+                if (ball.y > SCREEN_HEIGHT) {
+                    // Bottom boundary crossed -> Top Player B Wins
+                    winner = 2;
+                    current_state = GAMEOVER;
+                }
+                
+                // --- RENDER ---
+                Draw_Game_Update();
+                
+                // Frame Delay (adjust for smooth 30-60fps)
+                Delay(50000); 
+                break;
+                
             case GAMEOVER:
-                // Placeholder for Phase 3
+                EIE3810_TFTLCD_Clear(WHITE);
+                if (winner == 1) {
+                    DrawString(180, 400, "PLAYER A (BOTTOM) WINS!", RED, WHITE);
+                } else {
+                    DrawString(180, 400, "PLAYER B (TOP) WINS!", BLUE, WHITE);
+                }
+                
+                DrawString(180, 450, "PRESS KEY0 TO RESTART", BLACK, WHITE);
+                
+                // Wait for restart
+                // Simple debounce wait first
+                Delay(10000000); 
+                
+                while(1) {
+                    // Poll Key0 (PE4)
+                    if ((GPIOE->IDR & (1<<4)) == 0) {
+                        current_state = WELCOME;
+                        break;
+                    }
+                    // Or Joypad Select
+                    if (JOYPAD_Read() & 0x04) {
+                        current_state = WELCOME;
+                        break;
+                    }
+                }
                 break;
         }
     }
 }
-
-// Interrupt Handlers
-/*
-void USART1_IRQHandler(void) {
-    // Check if RXNE (Read Data Register Not Empty) flag is set
-    if (USART1->SR & (1 << 5)) {
-        // Read data (this clears the RXNE bit)
-        random_seed = USART1->DR;
-        seed_received = 1;
-    }
-}
-*/

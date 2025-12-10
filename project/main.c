@@ -5,6 +5,7 @@
 #include "EIE3810_USART.h"
 #include "EIE3810_LED.h"
 #include "EIE3810_Buzzer.h"
+#include <stdlib.h> // For abs()
 
 // Phase 3 Game Constants
 #define MY_BAUD_RATE 4800
@@ -15,6 +16,12 @@
 #define BALL_RADIUS 8
 #define PADDLE_Y_TOP 50       // Player B
 #define PADDLE_Y_BOTTOM 750   // Player A
+
+// Obstacle Constants
+#define OBSTACLE_WIDTH 50
+#define OBSTACLE_HEIGHT 20
+#define OBSTACLE_X (SCREEN_WIDTH / 2 - OBSTACLE_WIDTH / 2)
+#define OBSTACLE_Y (SCREEN_HEIGHT / 2 - OBSTACLE_HEIGHT / 2)
 
 // Game States
 typedef enum {
@@ -157,7 +164,10 @@ void Draw_Game_Update(void) {
         EIE3810_TFTLCD_FillRectangle(paddle_bottom.last_x, PADDLE_Y_BOTTOM, paddle_bottom.last_x + PADDLE_WIDTH, PADDLE_Y_BOTTOM + PADDLE_HEIGHT, WHITE);
     }
 
-    // 2. Draw New Objects
+    // 2. Draw Obstacle (Static, redrawing ensures it's not erased by ball passing through)
+    EIE3810_TFTLCD_FillRectangle(OBSTACLE_X, OBSTACLE_Y, OBSTACLE_X + OBSTACLE_WIDTH, OBSTACLE_Y + OBSTACLE_HEIGHT, GREEN);
+
+    // 3. Draw New Objects
     
     // Draw New Ball
     EIE3810_TFTLCD_DrawCircle(ball.x, ball.y, BALL_RADIUS, 1, RED);
@@ -166,7 +176,7 @@ void Draw_Game_Update(void) {
     EIE3810_TFTLCD_FillRectangle(paddle_top.x, PADDLE_Y_TOP, paddle_top.x + PADDLE_WIDTH, PADDLE_Y_TOP + PADDLE_HEIGHT, BLUE);
     EIE3810_TFTLCD_FillRectangle(paddle_bottom.x, PADDLE_Y_BOTTOM, paddle_bottom.x + PADDLE_WIDTH, PADDLE_Y_BOTTOM + PADDLE_HEIGHT, BLUE);
 
-    // 3. Update Last Positions
+    // 4. Update Last Positions
     ball.last_x = ball.x;
     ball.last_y = ball.y;
     paddle_top.last_x = paddle_top.x;
@@ -258,7 +268,6 @@ int main(void) {
                 // --- INPUT HANDLING ---
                 
                 // Player A (Bottom) - Board Keys
-                // Key2 (Left), Key0 (Right) - Assuming mapping, adjust if needed
                 
                 if ((GPIOE->IDR & (1<<2)) == 0) { // Key2 Pressed (Left)
                     paddle_bottom.x -= 3;
@@ -293,17 +302,50 @@ int main(void) {
                     ball.vx = -ball.vx;
                 }
                 
-                // Paddle Collisions
+                // --- OBSTACLE COLLISION ---
+                if (ball.x + BALL_RADIUS >= OBSTACLE_X && ball.x - BALL_RADIUS <= OBSTACLE_X + OBSTACLE_WIDTH &&
+                    ball.y + BALL_RADIUS >= OBSTACLE_Y && ball.y - BALL_RADIUS <= OBSTACLE_Y + OBSTACLE_HEIGHT) {
+                    
+                    // Simple collision: reverse Y (most hits will be vertical)
+                    // For better physics, could check overlap amount
+                    ball.vy = -ball.vy; 
+                    
+                    // Push out to prevent sticking
+                    if (ball.vy > 0) ball.y = OBSTACLE_Y + OBSTACLE_HEIGHT + BALL_RADIUS + 1;
+                    else ball.y = OBSTACLE_Y - BALL_RADIUS - 1;
+
+                    // Optional: Buzzer
+                    // EIE3810_Buzzer_On();
+                    Delay(20000); 
+                    // EIE3810_Buzzer_Off();
+                }
+
+                // --- PADDLE COLLISIONS (With Curve & Speed Up) ---
                 
                 // Top Paddle (Player B)
                 if (ball.y - BALL_RADIUS <= PADDLE_Y_TOP + PADDLE_HEIGHT && ball.y - BALL_RADIUS >= PADDLE_Y_TOP) {
                     if (ball.x >= paddle_top.x && ball.x <= paddle_top.x + PADDLE_WIDTH) {
-                        ball.vy = -ball.vy; // Bounce
-                        // Move out of collision to prevent sticking
+                        
+                        // 1. Dynamic Speed Up
+                        if (abs(ball.vy) < 12) { // Max speed limit
+                            if (ball.vy > 0) ball.vy++;
+                            else ball.vy--;
+                        }
+                        
+                        ball.vy = abs(ball.vy); // Ensure moving DOWN (positive Y)
+                        
+                        // 2. Curve Ball (Change VX based on hit position)
+                        s16 diff = ball.x - (paddle_top.x + PADDLE_WIDTH / 2);
+                        ball.vx = diff / 4; // Center=0, Edge=+/-12 (Adjust divisor 4 for sensitivity)
+                        
+                        // Prevent stuck horizontal bounce
+                        if (ball.vx == 0) ball.vx = (random_seed % 2 == 0) ? 1 : -1;
+
+                        // Move out of collision
                         ball.y = PADDLE_Y_TOP + PADDLE_HEIGHT + BALL_RADIUS + 1; 
                         
                         // EIE3810_Buzzer_On();
-                        Delay(50000); // Short beep
+                        Delay(50000); 
                         // EIE3810_Buzzer_Off();
                     }
                 }
@@ -311,12 +353,27 @@ int main(void) {
                 // Bottom Paddle (Player A)
                 if (ball.y + BALL_RADIUS >= PADDLE_Y_BOTTOM && ball.y + BALL_RADIUS <= PADDLE_Y_BOTTOM + PADDLE_HEIGHT) {
                     if (ball.x >= paddle_bottom.x && ball.x <= paddle_bottom.x + PADDLE_WIDTH) {
-                        ball.vy = -ball.vy; // Bounce
+                        
+                        // 1. Dynamic Speed Up
+                        if (abs(ball.vy) < 12) {
+                            if (ball.vy > 0) ball.vy++;
+                            else ball.vy--;
+                        }
+
+                        ball.vy = -abs(ball.vy); // Ensure moving UP (negative Y)
+                        
+                        // 2. Curve Ball
+                        s16 diff = ball.x - (paddle_bottom.x + PADDLE_WIDTH / 2);
+                        ball.vx = diff / 4;
+
+                        // Prevent stuck horizontal bounce
+                        if (ball.vx == 0) ball.vx = (random_seed % 2 == 0) ? 1 : -1;
+
                         // Move out of collision
                         ball.y = PADDLE_Y_BOTTOM - BALL_RADIUS - 1;
                         
                         // EIE3810_Buzzer_On();
-                        Delay(50000); // Short beep
+                        Delay(50000); 
                         // EIE3810_Buzzer_Off();
                     }
                 }

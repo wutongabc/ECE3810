@@ -267,28 +267,14 @@ int main(void) {
                     DrawString(180, 400, "WAITING FOR PC...", BLACK, WHITE);
                     show_wait_msg = 0;
                 }
-                
-                // Polling Check - DEBUG MODE
                 if (USART1->SR & (1 << 5)) { 
-                    u8 temp = USART1->DR;
-                    // Display raw hex value immediately for debugging baud rate
-                    // Position: (240, 400)
-                    EIE3810_TFTLCD_ShowChar(200, 400, 'R', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(208, 400, 'A', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(216, 400, 'W', BLACK, WHITE);
-                    EIE3810_TFTLCD_ShowChar(224, 400, ':', BLACK, WHITE);
-                    
-                    u8 hi = (temp >> 4) & 0x0F;
-                    u8 lo = temp & 0x0F;
-                    char c_hi = (hi < 10) ? (hi + '0') : (hi - 10 + 'A');
-                    char c_lo = (lo < 10) ? (lo + '0') : (lo - 10 + 'A');
-                    
-                    EIE3810_TFTLCD_ShowChar(240, 400, '0', RED, WHITE);
-                    EIE3810_TFTLCD_ShowChar(248, 400, 'x', RED, WHITE);
-                    EIE3810_TFTLCD_ShowChar(256, 400, c_hi, RED, WHITE);
-                    EIE3810_TFTLCD_ShowChar(264, 400, c_lo, RED, WHITE);
-                    
-                    // Do NOT jump to next state
+                    random_seed = USART1->DR;
+                    seed_received = 1;
+                }
+                if (seed_received) {
+                    // Go to SHOW_SEED instead of COUNTDOWN
+                    EIE3810_TFTLCD_Clear(WHITE);
+                    current_state = SHOW_SEED;
                 }
                 break;
             

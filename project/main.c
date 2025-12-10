@@ -33,6 +33,7 @@ typedef enum {
     WELCOME,
     DIFFICULTY,
     WAIT_SEED,
+    SHOW_SEED, // New state
     COUNTDOWN,
     PLAYING,
     GAMEOVER
@@ -261,9 +262,32 @@ int main(void) {
                     seed_received = 1;
                 }
                 if (seed_received) {
+                    // Go to SHOW_SEED instead of COUNTDOWN
                     EIE3810_TFTLCD_Clear(WHITE);
-                    current_state = COUNTDOWN;
+                    current_state = SHOW_SEED;
                 }
+                break;
+            
+            case SHOW_SEED:
+                DrawString(160, 350, "SEED RECEIVED:", BLACK, WHITE);
+                
+                // Display the seed value (single digit or hex)
+                // Assuming seed is 0-7 as per handout, or just raw hex
+                // Displaying raw hex for debug clarity
+                u8 hi = (random_seed >> 4) & 0x0F;
+                u8 lo = random_seed & 0x0F;
+                char c_hi = (hi < 10) ? (hi + '0') : (hi - 10 + 'A');
+                char c_lo = (lo < 10) ? (lo + '0') : (lo - 10 + 'A');
+                
+                EIE3810_TFTLCD_ShowChar(280, 350, '0', RED, WHITE);
+                EIE3810_TFTLCD_ShowChar(288, 350, 'x', RED, WHITE);
+                EIE3810_TFTLCD_ShowChar(296, 350, c_hi, RED, WHITE);
+                EIE3810_TFTLCD_ShowChar(304, 350, c_lo, RED, WHITE);
+                
+                Delay(40000000); // Wait 2-3 seconds for user to see
+                
+                EIE3810_TFTLCD_Clear(WHITE);
+                current_state = COUNTDOWN;
                 break;
                 
             case COUNTDOWN:

@@ -301,9 +301,9 @@ int main(void) {
                         // Move out of collision to prevent sticking
                         ball.y = PADDLE_Y_TOP + PADDLE_HEIGHT + BALL_RADIUS + 1; 
                         
-                        EIE3810_Buzzer_On();
+                        // EIE3810_Buzzer_On();
                         Delay(50000); // Short beep
-                        EIE3810_Buzzer_Off();
+                        // EIE3810_Buzzer_Off();
                     }
                 }
                 
@@ -314,9 +314,9 @@ int main(void) {
                         // Move out of collision
                         ball.y = PADDLE_Y_BOTTOM - BALL_RADIUS - 1;
                         
-                        EIE3810_Buzzer_On();
+                        // EIE3810_Buzzer_On();
                         Delay(50000); // Short beep
-                        EIE3810_Buzzer_Off();
+                        // EIE3810_Buzzer_Off();
                     }
                 }
                 

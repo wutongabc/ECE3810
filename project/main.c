@@ -224,6 +224,8 @@ int main(void) {
     
     // Temp variables for loop
     s16 ball_px = 0, ball_py = 0;
+    u8 hi = 0, lo = 0;
+    char c_hi = 0, c_lo = 0;
 
     while(1) {
         switch(current_state) {
@@ -282,10 +284,10 @@ int main(void) {
                 // Display the seed value (single digit or hex)
                 // Assuming seed is 0-7 as per handout, or just raw hex
                 // Displaying raw hex for debug clarity
-                u8 hi = (random_seed >> 4) & 0x0F;
-                u8 lo = random_seed & 0x0F;
-                char c_hi = (hi < 10) ? (hi + '0') : (hi - 10 + 'A');
-                char c_lo = (lo < 10) ? (lo + '0') : (lo - 10 + 'A');
+                hi = (random_seed >> 4) & 0x0F;
+                lo = random_seed & 0x0F;
+                c_hi = (hi < 10) ? (hi + '0') : (hi - 10 + 'A');
+                c_lo = (lo < 10) ? (lo + '0') : (lo - 10 + 'A');
                 
                 EIE3810_TFTLCD_ShowChar(280, 350, '0', RED, WHITE);
                 EIE3810_TFTLCD_ShowChar(288, 350, 'x', RED, WHITE);
@@ -438,6 +440,7 @@ int main(void) {
                 break;
                 
             case GAMEOVER:
+            {
                 EIE3810_TFTLCD_Clear(WHITE);
                 if (winner == 1) DrawString(140, 300, "PLAYER A (BOTTOM) WINS!", RED, WHITE);
                 else DrawString(160, 300, "PLAYER B (TOP) WINS!", BLUE, WHITE);
@@ -470,6 +473,7 @@ int main(void) {
                     if (JOYPAD_Read() & 0x04) { current_state = WELCOME; break; }
                 }
                 break;
+            }
         }
     }
 }

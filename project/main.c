@@ -36,6 +36,7 @@ typedef enum {
     SHOW_SEED, // New state
     COUNTDOWN,
     PLAYING,
+    PAUSED, // New PAUSED state
     GAMEOVER
 } GameState;
 
@@ -105,6 +106,7 @@ void System_Init(void) {
     
     EIE3810_Key_Init();      
     GPIOE->ODR |= (1 << 2); // Pull-up PE2
+    GPIOE->ODR |= (1 << 3); // Pull-up PE3
     GPIOE->ODR |= (1 << 4); // Pull-up PE4
     
     EIE3810_LED_Init();
@@ -301,6 +303,15 @@ int main(void) {
                 break;
                 
             case PLAYING:
+                // --- PAUSE CHECK (Key1 - PE3) ---
+                if ((GPIOE->IDR & (1<<3)) == 0) { // Key1 Pressed
+                    current_state = PAUSED;
+                    // Debounce wait (wait for release)
+                    while((GPIOE->IDR & (1<<3)) == 0); 
+                    Delay(5000000); 
+                    break; // Exit PLAYING case immediately
+                }
+
                 // --- INPUT HANDLING ---
                 if ((GPIOE->IDR & (1<<2)) == 0) paddle_bottom.x -= 3;
                 if ((GPIOE->IDR & (1<<4)) == 0) paddle_bottom.x += 3;
@@ -391,6 +402,26 @@ int main(void) {
                 
                 Draw_Game_Update();
                 Delay(50000); 
+                break;
+                
+            case PAUSED:
+                DrawString(200, 400, "PAUSED", RED, WHITE);
+                
+                // Wait for Key1 to resume
+                if ((GPIOE->IDR & (1<<3)) == 0) { // Key1 Pressed
+                    // Clear "PAUSED" text (overwrite with white)
+                    DrawString(200, 400, "PAUSED", WHITE, WHITE); 
+                    
+                    // Force a full redraw of game objects to ensure clean state
+                    // (Optional, but good practice if text overlapped objects)
+                    Draw_Game_Update();
+                    
+                    current_state = PLAYING;
+                    
+                    // Debounce (wait for release)
+                    while((GPIOE->IDR & (1<<3)) == 0);
+                    Delay(5000000);
+                }
                 break;
                 
             case GAMEOVER:

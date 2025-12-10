@@ -80,9 +80,14 @@ void System_Init(void) {
     EIE3810_clock_tree_init();
     
     // Initialize Peripherals
-    EIE3810_Key_Init();
+    EIE3810_Key_Init();      // Note: Uppercase 'I' standard
+    
+    // FORCE PULL-UP for Keys (Fix for buttons not working)
+    GPIOE->ODR |= (1 << 2); // Pull-up for KEY2 (PE2)
+    GPIOE->ODR |= (1 << 4); // Pull-up for KEY0 (PE4)
+    
     EIE3810_LED_Init();
-    EIE3810_Buzzer_Init();
+    EIE3810_Buzzer_Init();   // Note: Uppercase 'I' standard
     EIE3810_USART1_init(72, MY_BAUD_RATE);
     JOYPAD_Init();
     EIE3810_TFTLCD_Init();
@@ -180,8 +185,12 @@ int main(void) {
         switch(current_state) {
             case WELCOME:
                 Draw_Welcome();
+                // Wait for approx 2 seconds
                 Delay(20000000); 
+                
+                // Auto jump to DIFFICULTY
                 current_state = DIFFICULTY;
+                // Initial draw for difficulty screen
                 Draw_Difficulty(current_difficulty);
                 break;
                 
@@ -250,29 +259,21 @@ int main(void) {
                 
                 // Player A (Bottom) - Board Keys
                 // Key2 (Left), Key0 (Right) - Assuming mapping, adjust if needed
-                // Note: KEY2 is usually bit 2 in IDR? Using library function usually returns 0 or 1.
-                // Assuming polling GPIO directly or using Key_Scan if available. 
-                // Let's use direct GPIO check based on typical schematics (Key0=PE4, Key2=PE2 usually, or similar)
-                // BUT we have EIE3810_Key.h. Let's assume standard checks or direct register for speed.
-                // Assuming: Key0 is PE4, Key2 is PE2? Or KEY_UP is PA0?
-                // For simplicity, let's try direct register read if we know pins, or just use placeholders.
-                // Handout says Key2 and Key0. Let's assume Key0=Right, Key2=Left.
-                // PE4 = Key0, PE2 = Key2. (Active Low usually)
                 
                 if ((GPIOE->IDR & (1<<2)) == 0) { // Key2 Pressed (Left)
-                    paddle_bottom.x -= 10;
+                    paddle_bottom.x -= 3;
                 }
                 if ((GPIOE->IDR & (1<<4)) == 0) { // Key0 Pressed (Right)
-                    paddle_bottom.x += 10;
+                    paddle_bottom.x += 3;
                 }
                 
                 // Player B (Top) - Joypad
                 joy_val = JOYPAD_Read();
                 if (joy_val & 0x40) { // LEFT (Bit 6)
-                    paddle_top.x -= 10;
+                    paddle_top.x -= 3;
                 }
                 if (joy_val & 0x80) { // RIGHT (Bit 7)
-                    paddle_top.x += 10;
+                    paddle_top.x += 3;
                 }
                 
                 // Boundary Checks for Paddles

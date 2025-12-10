@@ -76,6 +76,8 @@ Ball ball;
 Paddle paddle_top;    // Player B
 Paddle paddle_bottom; // Player A
 u8 winner = 0; 
+u32 bounce_count = 0;
+u32 game_frames = 0; // To calculate time
 
 // Obstacles Array
 Obstacle obstacles[3] = {
@@ -141,6 +143,10 @@ void Game_Reset(void) {
     
     paddle_bottom.x = (SCREEN_WIDTH - PADDLE_WIDTH) / 2;
     paddle_bottom.last_x = paddle_bottom.x;
+    
+    // Reset Stats
+    bounce_count = 0;
+    game_frames = 0;
 }
 
 // Draw Functions
@@ -337,6 +343,7 @@ int main(void) {
                 // Wall Collisions
                 if (ball_px <= BALL_RADIUS || ball_px >= SCREEN_WIDTH - BALL_RADIUS) {
                     ball.vx = -ball.vx;
+                    bounce_count++; // Count Wall Bounce
                     // Push out
                     if (ball_px <= BALL_RADIUS) ball.x = (BALL_RADIUS + 1) * FIXED_SCALE;
                     else ball.x = (SCREEN_WIDTH - BALL_RADIUS - 1) * FIXED_SCALE;
@@ -349,6 +356,7 @@ int main(void) {
                         
                         // Bounce Y
                         ball.vy = -ball.vy; 
+                        bounce_count++; // Count Obstacle Bounce
                         
                         // Push out (Simplified vertical push)
                         if (ball.vy > 0) ball.y = (obstacles[i].y + obstacles[i].h + BALL_RADIUS + 1) * FIXED_SCALE;
@@ -361,6 +369,8 @@ int main(void) {
                 // Paddle Collisions (Top)
                 if (ball_py - BALL_RADIUS <= PADDLE_Y_TOP + PADDLE_HEIGHT && ball_py - BALL_RADIUS >= PADDLE_Y_TOP) {
                     if (ball_px >= paddle_top.x && ball_px <= paddle_top.x + PADDLE_WIDTH) {
+                        bounce_count++; // Count Paddle Bounce
+                        
                         // Speed Up (Add 2 = 0.2 pixels)
                         if (abs(ball.vy) < 120) { // Max 12.0
                             if (ball.vy > 0) ball.vy += 2;
@@ -381,6 +391,8 @@ int main(void) {
                 // Paddle Collisions (Bottom)
                 if (ball_py + BALL_RADIUS >= PADDLE_Y_BOTTOM && ball_py + BALL_RADIUS <= PADDLE_Y_BOTTOM + PADDLE_HEIGHT) {
                     if (ball_px >= paddle_bottom.x && ball_px <= paddle_bottom.x + PADDLE_WIDTH) {
+                        bounce_count++; // Count Paddle Bounce
+                        
                         // Speed Up
                         if (abs(ball.vy) < 120) {
                             if (ball.vy > 0) ball.vy += 2;
@@ -401,6 +413,7 @@ int main(void) {
                 if (ball_py > SCREEN_HEIGHT) { winner = 2; current_state = GAMEOVER; }
                 
                 Draw_Game_Update();
+                game_frames++;
                 Delay(50000); 
                 break;
                 
@@ -426,10 +439,31 @@ int main(void) {
                 
             case GAMEOVER:
                 EIE3810_TFTLCD_Clear(WHITE);
-                if (winner == 1) DrawString(180, 400, "PLAYER A (BOTTOM) WINS!", RED, WHITE);
-                else DrawString(180, 400, "PLAYER B (TOP) WINS!", BLUE, WHITE);
+                if (winner == 1) DrawString(140, 300, "PLAYER A (BOTTOM) WINS!", RED, WHITE);
+                else DrawString(160, 300, "PLAYER B (TOP) WINS!", BLUE, WHITE);
                 
-                DrawString(180, 450, "PRESS KEY0 TO RESTART", BLACK, WHITE);
+                // Display Stats
+                DrawString(160, 350, "BOUNCES:", BLACK, WHITE);
+                u32 tmp = bounce_count;
+                u16 dx = 240;
+                if (tmp == 0) EIE3810_TFTLCD_ShowChar(dx, 350, '0', BLACK, WHITE);
+                else {
+                    char buf[10]; int k=0;
+                    while(tmp > 0) { buf[k++] = (tmp%10)+'0'; tmp/=10; }
+                    while(k > 0) { EIE3810_TFTLCD_ShowChar(dx, 350, buf[--k], BLACK, WHITE); dx+=8; }
+                }
+
+                DrawString(160, 380, "TIME(s):", BLACK, WHITE);
+                tmp = game_frames / 40; // Approx seconds
+                dx = 240;
+                if (tmp == 0) EIE3810_TFTLCD_ShowChar(dx, 380, '0', BLACK, WHITE);
+                else {
+                    char buf[10]; int k=0;
+                    while(tmp > 0) { buf[k++] = (tmp%10)+'0'; tmp/=10; }
+                    while(k > 0) { EIE3810_TFTLCD_ShowChar(dx, 380, buf[--k], BLACK, WHITE); dx+=8; }
+                }
+
+                DrawString(160, 500, "PRESS KEY0 TO RESTART", BLACK, WHITE);
                 Delay(10000000); 
                 while(1) {
                     if ((GPIOE->IDR & (1<<4)) == 0) { current_state = WELCOME; break; }

@@ -333,11 +333,11 @@ int main(void) {
                         }
                         ball.vy = abs(ball.vy); 
                         
-                        // Curve
-                        s16 diff = ball_px - (paddle_top.x + PADDLE_WIDTH / 2);
-                        ball.vx = (diff * FIXED_SCALE) / 4; 
-                        
-                        if (ball.vx == 0) ball.vx = (random_seed % 2 == 0) ? 20 : -20;
+                        // Simple Bounce (Keep horizontal speed)
+                        // Optional: Add small random jitter to prevent infinite loops
+                        // ball.vx += (random_seed % 3) - 1;
+
+                        // Move out of collision
                         ball.y = (PADDLE_Y_TOP + PADDLE_HEIGHT + BALL_RADIUS + 1) * FIXED_SCALE; 
                         Delay(50000); 
                     }
@@ -353,11 +353,9 @@ int main(void) {
                         }
                         ball.vy = -abs(ball.vy);
                         
-                        // Curve
-                        s16 diff = ball_px - (paddle_bottom.x + PADDLE_WIDTH / 2);
-                        ball.vx = (diff * FIXED_SCALE) / 4;
+                        // Simple Bounce
                         
-                        if (ball.vx == 0) ball.vx = (random_seed % 2 == 0) ? 20 : -20;
+                        // Move out of collision
                         ball.y = (PADDLE_Y_BOTTOM - BALL_RADIUS - 1) * FIXED_SCALE;
                         Delay(50000); 
                     }

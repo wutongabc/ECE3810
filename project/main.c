@@ -98,11 +98,11 @@ void Game_Reset(void) {
     
     // Set Speed based on Difficulty
     if (current_difficulty == DIFF_EASY) {
-        ball.vx = 3;
-        ball.vy = 3; // Initially moves down-right
+        ball.vx = 1;
+        ball.vy = 1; // Initially moves down-right
     } else {
-        ball.vx = 6;
-        ball.vy = 6;
+        ball.vx = 2;
+        ball.vy = 2;
     }
     
     // Center Paddles

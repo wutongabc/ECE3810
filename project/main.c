@@ -17,6 +17,14 @@
 #define PADDLE_Y_TOP 50       // Player B
 #define PADDLE_Y_BOTTOM 750   // Player A
 
+// Missing Colors
+#ifndef MAGENTA
+#define MAGENTA 0xF81F
+#endif
+#ifndef CYAN
+#define CYAN 0x07FF
+#endif
+
 // Fixed Point Math Scale
 #define FIXED_SCALE 10
 
@@ -205,6 +213,9 @@ int main(void) {
     
     System_Init();
     
+    // Temp variables for loop
+    s16 ball_px = 0, ball_py = 0;
+
     while(1) {
         switch(current_state) {
             case WELCOME:
@@ -285,8 +296,8 @@ int main(void) {
                 ball.y += ball.vy;
                 
                 // Convert to Pixel Coords for Collision
-                s16 ball_px = ball.x / FIXED_SCALE;
-                s16 ball_py = ball.y / FIXED_SCALE;
+                ball_px = ball.x / FIXED_SCALE;
+                ball_py = ball.y / FIXED_SCALE;
                 
                 // Wall Collisions
                 if (ball_px <= BALL_RADIUS || ball_px >= SCREEN_WIDTH - BALL_RADIUS) {

@@ -226,8 +226,10 @@ int main(void) {
     s16 ball_px = 0, ball_py = 0;
     u8 hi = 0, lo = 0;
     char c_hi = 0, c_lo = 0;
+    u32 seed_counter = 0; // Free running counter for pseudo-random
 
     while(1) {
+        seed_counter++; // Increment every loop iteration
         switch(current_state) {
             case WELCOME:
                 Draw_Welcome();
@@ -279,14 +281,17 @@ int main(void) {
                 break;
             
             case SHOW_SEED:
+                // Generate Pseudo-Random Seed based on user timing
+                random_seed = seed_counter % 8;
+
                 DrawString(160, 350, "SEED RECEIVED:", BLACK, WHITE);
                 
                 // Display the seed value (single digit or hex)
                 // Assuming seed is 0-7 as per handout, or just raw hex
                 // Displaying raw hex for debug clarity
-                hi = (random_seed >> 4) & 0x0F;
-                lo = random_seed & 0x0F;
-                c_hi = (hi < 10) ? (hi + '0') : (hi - 10 + 'A');
+                hi = 0; // High nibble is always 0 for 0-7
+                lo = random_seed;
+                c_hi = '0';
                 c_lo = (lo < 10) ? (lo + '0') : (lo - 10 + 'A');
                 
                 EIE3810_TFTLCD_ShowChar(280, 350, '0', RED, WHITE);

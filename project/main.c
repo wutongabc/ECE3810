@@ -7,6 +7,10 @@
 #include "EIE3810_Buzzer.h"
 #include <stdlib.h>
 
+// Buzzer Macros (PB8)
+#define BUZZER_ON()  GPIOB->BSRR = (1<<8) 
+#define BUZZER_OFF() GPIOB->BRR = (1<<8) 
+
 // Phase 3 Game Constants
 #define MY_BAUD_RATE 4800
 #define SCREEN_WIDTH 480
@@ -33,10 +37,10 @@ typedef enum {
     WELCOME,
     DIFFICULTY,
     WAIT_SEED,
-    SHOW_SEED, // New state
+    SHOW_SEED,
     COUNTDOWN,
     PLAYING,
-    PAUSED, // New PAUSED state
+    PAUSED, 
     GAMEOVER
 } GameState;
 
@@ -77,7 +81,7 @@ Paddle paddle_top;    // Player B
 Paddle paddle_bottom; // Player A
 u8 winner = 0; 
 u32 bounce_count = 0;
-u32 game_frames = 0; // To calculate time
+u32 game_frames = 0; 
 
 // Obstacles Array
 Obstacle obstacles[3] = {
@@ -94,6 +98,16 @@ void Delay(u32 count) {
     while(count--);
 }
 
+// Start Sound
+void Play_Start_Sound(void) {
+    // Beep 1
+    BUZZER_ON(); Delay(200000); BUZZER_OFF(); Delay(100000);
+    // Beep 2
+    BUZZER_ON(); Delay(200000); BUZZER_OFF(); Delay(100000);
+    // Beep 3 (Long)
+    BUZZER_ON(); Delay(400000); BUZZER_OFF();
+}
+
 void DrawString(u16 x, u16 y, char *str, u16 color, u16 bgcolor) {
     while (*str) {
         EIE3810_TFTLCD_ShowChar(x, y, *str, color, bgcolor);
@@ -107,8 +121,9 @@ void System_Init(void) {
     EIE3810_clock_tree_init();
     
     EIE3810_Key_Init();      
+    // FORCE PULL-UP for Keys
     GPIOE->ODR |= (1 << 2); // Pull-up PE2
-    GPIOE->ODR |= (1 << 3); // Pull-up PE3
+    GPIOE->ODR |= (1 << 3); // Pull-up PE3 (Pause)
     GPIOE->ODR |= (1 << 4); // Pull-up PE4
     
     EIE3810_LED_Init();
@@ -151,9 +166,16 @@ void Game_Reset(void) {
 
 // Draw Functions
 void Draw_Welcome(void) {
+    static u8 sound_played = 0;
+    
     EIE3810_TFTLCD_Clear(WHITE); 
     DrawString(180, 350, "WELCOME", BLACK, WHITE);
     DrawString(160, 380, "ECE3080 PROJECT", BLUE, WHITE);
+    
+    if (!sound_played) {
+        Play_Start_Sound();
+        sound_played = 1;
+    }
 }
 
 void Draw_Difficulty(Difficulty diff) {
@@ -176,11 +198,8 @@ void Draw_Difficulty(Difficulty diff) {
 // Partial Redraw
 void Draw_Game_Update(void) {
     // 1. Erase Old Objects
-    
-    // Erase Ball (at old draw_x, draw_y)
     EIE3810_TFTLCD_DrawCircle(ball.draw_x, ball.draw_y, BALL_RADIUS, 1, WHITE);
     
-    // Erase Paddles
     if (paddle_top.x != paddle_top.last_x) {
         EIE3810_TFTLCD_FillRectangle(paddle_top.last_x, PADDLE_Y_TOP, paddle_top.last_x + PADDLE_WIDTH, PADDLE_Y_TOP + PADDLE_HEIGHT, WHITE);
     }
@@ -188,7 +207,7 @@ void Draw_Game_Update(void) {
         EIE3810_TFTLCD_FillRectangle(paddle_bottom.last_x, PADDLE_Y_BOTTOM, paddle_bottom.last_x + PADDLE_WIDTH, PADDLE_Y_BOTTOM + PADDLE_HEIGHT, WHITE);
     }
 
-    // 2. Draw Static Obstacles (Always redraw to handle overlap erasure)
+    // 2. Draw Static Obstacles
     for(int i=0; i<3; i++) {
         EIE3810_TFTLCD_FillRectangle(obstacles[i].x, obstacles[i].y, 
                                      obstacles[i].x + obstacles[i].w, 
@@ -197,8 +216,6 @@ void Draw_Game_Update(void) {
     }
 
     // 3. Draw New Objects
-    
-    // Calculate new pixel coordinates
     s16 screen_x = ball.x / FIXED_SCALE;
     s16 screen_y = ball.y / FIXED_SCALE;
     
@@ -226,10 +243,10 @@ int main(void) {
     s16 ball_px = 0, ball_py = 0;
     u8 hi = 0, lo = 0;
     char c_hi = 0, c_lo = 0;
-    u32 seed_counter = 0; // Free running counter for pseudo-random
+    u32 seed_counter = 0; 
 
     while(1) {
-        seed_counter++; // Increment every loop iteration
+        seed_counter++; 
         switch(current_state) {
             case WELCOME:
                 Draw_Welcome();
@@ -269,12 +286,16 @@ int main(void) {
                     DrawString(180, 400, "WAITING FOR PC...", BLACK, WHITE);
                     show_wait_msg = 0;
                 }
+                
+                // Polling Check - DEBUG MODE
                 if (USART1->SR & (1 << 5)) { 
-                    random_seed = USART1->DR;
+                    u8 temp = USART1->DR;
+                    // Force any received data to valid range 0-7
+                    random_seed = temp % 8;
                     seed_received = 1;
                 }
+                
                 if (seed_received) {
-                    // Go to SHOW_SEED instead of COUNTDOWN
                     EIE3810_TFTLCD_Clear(WHITE);
                     current_state = SHOW_SEED;
                 }
@@ -286,10 +307,8 @@ int main(void) {
 
                 DrawString(160, 350, "SEED RECEIVED:", BLACK, WHITE);
                 
-                // Display the seed value (single digit or hex)
-                // Assuming seed is 0-7 as per handout, or just raw hex
-                // Displaying raw hex for debug clarity
-                hi = 0; // High nibble is always 0 for 0-7
+                // Display the seed value
+                hi = 0; 
                 lo = random_seed;
                 c_hi = '0';
                 c_lo = (lo < 10) ? (lo + '0') : (lo - 10 + 'A');
@@ -299,8 +318,7 @@ int main(void) {
                 EIE3810_TFTLCD_ShowChar(296, 350, c_hi, RED, WHITE);
                 EIE3810_TFTLCD_ShowChar(304, 350, c_lo, RED, WHITE);
                 
-                Delay(40000000); // Wait 2-3 seconds for user to see
-                
+                Delay(40000000); 
                 EIE3810_TFTLCD_Clear(WHITE);
                 current_state = COUNTDOWN;
                 break;
@@ -317,12 +335,11 @@ int main(void) {
                 
             case PLAYING:
                 // --- PAUSE CHECK (Key1 - PE3) ---
-                if ((GPIOE->IDR & (1<<3)) == 0) { // Key1 Pressed
+                if ((GPIOE->IDR & (1<<3)) == 0) { 
                     current_state = PAUSED;
-                    // Debounce wait (wait for release)
                     while((GPIOE->IDR & (1<<3)) == 0); 
                     Delay(5000000); 
-                    break; // Exit PLAYING case immediately
+                    break; 
                 }
 
                 // --- INPUT HANDLING ---
@@ -343,15 +360,13 @@ int main(void) {
                 ball.x += ball.vx;
                 ball.y += ball.vy;
                 
-                // Convert to Pixel Coords for Collision
                 ball_px = ball.x / FIXED_SCALE;
                 ball_py = ball.y / FIXED_SCALE;
                 
                 // Wall Collisions
                 if (ball_px <= BALL_RADIUS || ball_px >= SCREEN_WIDTH - BALL_RADIUS) {
                     ball.vx = -ball.vx;
-                    bounce_count++; // Count Wall Bounce
-                    // Push out
+                    bounce_count++;
                     if (ball_px <= BALL_RADIUS) ball.x = (BALL_RADIUS + 1) * FIXED_SCALE;
                     else ball.x = (SCREEN_WIDTH - BALL_RADIUS - 1) * FIXED_SCALE;
                 }
@@ -361,57 +376,49 @@ int main(void) {
                     if (ball_px + BALL_RADIUS >= obstacles[i].x && ball_px - BALL_RADIUS <= obstacles[i].x + obstacles[i].w &&
                         ball_py + BALL_RADIUS >= obstacles[i].y && ball_py - BALL_RADIUS <= obstacles[i].y + obstacles[i].h) {
                         
-                        // Bounce Y
                         ball.vy = -ball.vy; 
-                        bounce_count++; // Count Obstacle Bounce
-                        
-                        // Push out (Simplified vertical push)
+                        bounce_count++;
                         if (ball.vy > 0) ball.y = (obstacles[i].y + obstacles[i].h + BALL_RADIUS + 1) * FIXED_SCALE;
                         else ball.y = (obstacles[i].y - BALL_RADIUS - 1) * FIXED_SCALE;
                         
-                        Delay(20000); 
+                        // SOUND ON
+                        BUZZER_ON(); Delay(20000); BUZZER_OFF();
                     }
                 }
 
                 // Paddle Collisions (Top)
                 if (ball_py - BALL_RADIUS <= PADDLE_Y_TOP + PADDLE_HEIGHT && ball_py - BALL_RADIUS >= PADDLE_Y_TOP) {
                     if (ball_px >= paddle_top.x && ball_px <= paddle_top.x + PADDLE_WIDTH) {
-                        bounce_count++; // Count Paddle Bounce
+                        bounce_count++;
                         
-                        // Speed Up (Add 2 = 0.2 pixels)
-                        if (abs(ball.vy) < 120) { // Max 12.0
+                        if (abs(ball.vy) < 120) { 
                             if (ball.vy > 0) ball.vy += 2;
                             else ball.vy -= 2;
                         }
                         ball.vy = abs(ball.vy); 
                         
-                        // Simple Bounce (Keep horizontal speed)
-                        // Optional: Add small random jitter to prevent infinite loops
-                        // ball.vx += (random_seed % 3) - 1;
-
-                        // Move out of collision
                         ball.y = (PADDLE_Y_TOP + PADDLE_HEIGHT + BALL_RADIUS + 1) * FIXED_SCALE; 
-                        Delay(50000); 
+                        
+                        // SOUND ON
+                        BUZZER_ON(); Delay(50000); BUZZER_OFF();
                     }
                 }
                 
                 // Paddle Collisions (Bottom)
                 if (ball_py + BALL_RADIUS >= PADDLE_Y_BOTTOM && ball_py + BALL_RADIUS <= PADDLE_Y_BOTTOM + PADDLE_HEIGHT) {
                     if (ball_px >= paddle_bottom.x && ball_px <= paddle_bottom.x + PADDLE_WIDTH) {
-                        bounce_count++; // Count Paddle Bounce
+                        bounce_count++;
                         
-                        // Speed Up
                         if (abs(ball.vy) < 120) {
                             if (ball.vy > 0) ball.vy += 2;
                             else ball.vy -= 2;
                         }
                         ball.vy = -abs(ball.vy);
                         
-                        // Simple Bounce
-                        
-                        // Move out of collision
                         ball.y = (PADDLE_Y_BOTTOM - BALL_RADIUS - 1) * FIXED_SCALE;
-                        Delay(50000); 
+                        
+                        // SOUND ON
+                        BUZZER_ON(); Delay(50000); BUZZER_OFF();
                     }
                 }
                 
@@ -426,19 +433,10 @@ int main(void) {
                 
             case PAUSED:
                 DrawString(200, 400, "PAUSED", RED, WHITE);
-                
-                // Wait for Key1 to resume
-                if ((GPIOE->IDR & (1<<3)) == 0) { // Key1 Pressed
-                    // Clear "PAUSED" text (overwrite with white)
+                if ((GPIOE->IDR & (1<<3)) == 0) { 
                     DrawString(200, 400, "PAUSED", WHITE, WHITE); 
-                    
-                    // Force a full redraw of game objects to ensure clean state
-                    // (Optional, but good practice if text overlapped objects)
                     Draw_Game_Update();
-                    
                     current_state = PLAYING;
-                    
-                    // Debounce (wait for release)
                     while((GPIOE->IDR & (1<<3)) == 0);
                     Delay(5000000);
                 }
@@ -450,7 +448,6 @@ int main(void) {
                 if (winner == 1) DrawString(140, 300, "PLAYER A (BOTTOM) WINS!", RED, WHITE);
                 else DrawString(160, 300, "PLAYER B (TOP) WINS!", BLUE, WHITE);
                 
-                // Display Stats
                 DrawString(160, 350, "BOUNCES:", BLACK, WHITE);
                 u32 tmp = bounce_count;
                 u16 dx = 240;
@@ -462,7 +459,7 @@ int main(void) {
                 }
 
                 DrawString(160, 380, "TIME(s):", BLACK, WHITE);
-                tmp = game_frames / 40; // Approx seconds
+                tmp = game_frames / 40; 
                 dx = 240;
                 if (tmp == 0) EIE3810_TFTLCD_ShowChar(dx, 380, '0', BLACK, WHITE);
                 else {

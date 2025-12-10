@@ -328,7 +328,7 @@ int main(void) {
                         
                         // 1. Dynamic Speed Up
                         if (abs(ball.vy) < 12) { // Max speed limit
-                            if (ball.vy > 0) ball.vy++;
+                            if (ball.vy > 0) ball.vy += 0.2;
                             else ball.vy--;
                         }
                         
@@ -356,7 +356,7 @@ int main(void) {
                         
                         // 1. Dynamic Speed Up
                         if (abs(ball.vy) < 12) {
-                            if (ball.vy > 0) ball.vy++;
+                            if (ball.vy > 0) ball.vy += 0.2;
                             else ball.vy--;
                         }
 

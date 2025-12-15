@@ -1,0 +1,278 @@
+\documentclass[12pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{subcaption}
+\usepackage{fancyhdr}
+\usepackage{times}
+
+% Page layout
+\geometry{left=2.54cm, right=2.54cm, top=2.54cm, bottom=2.54cm}
+
+% Code listing style
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+
+\lstset{style=mystyle}
+
+% Header setup
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{Student ID: 123090704}
+\rhead{Name: Xu Zigeng}
+\renewcommand{\headrulewidth}{0.4pt}
+
+\begin{document}
+
+\begin{titlepage}
+    \thispagestyle{empty}
+    \centering
+    \vspace*{1cm}
+
+    {\Large ECE3810 Microprocessor System Design \\ Laboratory \par}
+
+    \vspace{3cm}
+
+    {\Huge Laboratory Report 5 \par}
+
+    \vspace{6cm}
+
+    {\large
+    Name: Xu Zigeng \\
+    \vspace{0.8cm}
+    Student ID: 123090704 \\
+    \vspace{0.8cm}
+    Date: 2025/12/15
+    }
+
+    \vfill
+
+    {\Large The Chinese University of Hong Kong, Shenzhen \par}
+    \vspace{2cm}
+\end{titlepage}
+
+\section{Objectives}
+In this project, we aimed to design and build a 2-player bouncing ball game based on the knowledge learned through ECE3810 Labs 1-5. Specifically, the objectives were:
+\begin{itemize}
+    \item To implement a complete game system integrating GPIO, USART, LCD, External Interrupt, and Timer.
+    \item To realize the basic bouncing ball game mechanics as specified in the project handout.
+    \item To propose and implement improvements to make the game more challenging and engaging.
+\end{itemize}
+
+\section{Basics and Setup}
+The system is built on the STM32F103 microprocessor. The hardware setup involves:
+\begin{itemize}
+    \item \textbf{STM32 Board}: The core controller managing game logic and peripherals.
+    \item \textbf{TFT LCD}: Displays the game interface, including the ball, paddles, obstacles, and status text.
+    \item \textbf{Joypad}: Connected via COM3, used by Player B to control the top paddle.
+    \item \textbf{On-board Keys}: Key0, Key1, Key2 used by Player A for control and system settings.
+    \item \textbf{USART}: Used for communication with the PC to receive a random seed for the ball's initial direction.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.6\textwidth]{setup.jpg} 
+    % \fbox{\parbox{10cm}{\vspace{5cm}\centering [Place Hardware Setup Photo Here]}}
+    \caption{Hardware setup showing the STM32 board, LCD, and Joypad connection.}
+    \label{fig:setup}
+\end{figure}
+
+\section{Experiment 1: Realization of Bouncing Ball Game}
+
+\subsection{Initialization and Difficulty Selection}
+Upon startup, the system initializes all peripherals. The LCD displays the welcome screen. Player A uses Key\_Up/Key1 or Player B uses the Joypad to select the difficulty level (Easy/Hard).
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.4\textwidth}
+        \centering
+        \includegraphics[width=0.8\textwidth]{welcome.jpg}
+        % \fbox{\parbox{5cm}{\vspace{6cm}\centering [Place Welcome Screen Photo]}}
+        \caption{Welcome screen with startup melody.}
+        \label{fig:welcome_screen}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.4\textwidth}
+        \centering
+        \includegraphics[width=0.8\textwidth]{Difficulty.jpg}
+        % \fbox{\parbox{5cm}{\vspace{6cm}\centering [Place Difficulty Select Photo]}}
+        \caption{Difficulty selection interface (Easy/Hard).}
+        \label{fig:difficulty_select}
+    \end{subfigure}
+    \caption{Initial startup screen and difficulty selection.}
+    \label{fig:welcome}
+\end{figure}
+
+\subsection{Random Direction via USART}
+After difficulty selection, the game waits for a random seed. The Python script \texttt{ECE3080\_PC.exe} sends a random number (0-7) via USART. The system receives this seed to determine the ball's initial launch direction.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{Waiting.jpg}
+        % \fbox{\parbox{5cm}{\vspace{4cm}\centering [Place 'Waiting for Seed' Screen Photo]}}
+        \caption{LCD showing waiting status.}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.45\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{DisplaySeed.jpg}
+        % \fbox{\parbox{5cm}{\vspace{4cm}\centering [Place PC GUI Photo]}}
+        \caption{Showing the random seed.}
+    \end{subfigure}
+    \caption{USART communication process for random seed generation.}
+    \label{fig:usart}
+\end{figure}
+
+\subsection{Countdown and Game Start}
+Once the seed is received, a 3-second countdown is displayed. The ball then launches in the direction corresponding to the received random number.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{CountDown.jpg}
+    % \fbox{\parbox{8cm}{\vspace{5cm}\centering [Place Countdown Screen Photo Here]}}
+    \caption{3-second countdown before the game starts.}
+    \label{fig:countdown}
+\end{figure}
+
+\subsection{Gameplay and Physics}
+During the game:
+\begin{itemize}
+    \item **Player A** controls the bottom paddle using Key2 (Left) and Key0 (Right).
+    \item **Player B** controls the top paddle using the Joypad (Left/Right).
+    \item The ball bounces off the side walls and paddles.
+    \item A buzzer sounds upon collision.
+    \item The elapsed time and bounce count are updated in real-time on the LCD.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{Game.jpg}
+    % \fbox{\parbox{8cm}{\vspace{5cm}\centering [Place Gameplay Screen Photo Here]}}
+    \caption{Active gameplay showing the ball, paddles, and status information.}
+    \label{fig:gameplay}
+\end{figure}
+
+\subsection{Game Over and Reset}
+If a player fails to catch the ball, the game ends. The winner is announced, and the final stats are shown. After a few seconds, the game returns to the start screen.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.45\textwidth]{Score.jpg}
+    % \fbox{\parbox{8cm}{\vspace{5cm}\centering [Place Game Over Screen Photo Here]}}
+    \caption{Game Over screen displaying the result and winner.}
+    \label{fig:gameover}
+\end{figure}
+
+\section{Experiment 2: Improve the Bouncing Ball Game}
+
+\subsection{Proposed Improvements}
+To enhance the gameplay depth and user experience, I introduced several major improvements beyond the basic requirements:
+\begin{enumerate}
+    \item \textbf{Static Obstacles}: Added obstacles in the arena to create unpredictable bounce trajectories.
+    \item \textbf{Dynamic Acceleration}: The ball's speed increases after every paddle hit, making the game progressively harder (rally intensity).
+    \item \textbf{Best-of-Three Match System}: Implemented a scoring system where the first player to win 2 rounds wins the match, adding a competitive tournament feel.
+    \item \textbf{Audio Feedback}: Added a welcome melody at startup and distinct sound effects for collisions (paddles vs. obstacles).
+\end{enumerate}
+
+\subsection{Realization}
+
+\subsubsection{Static Obstacles}
+Three obstacles were defined to disrupt simple reflection angles:
+\begin{itemize}
+    \item Center (Green): A rectangular block in the middle.
+    \item Top Left (Magenta) \& Bottom Right (Cyan): Square blocks near the player zones.
+\end{itemize}
+
+\begin{lstlisting}[language=C, caption={Obstacle Definition}]
+typedef struct {
+    s16 x, y, w, h;
+    u16 color;
+} Obstacle;
+// ... obstacles initialized in array ...
+\end{lstlisting}
+
+\subsubsection{Dynamic Acceleration}
+To prevent infinite rallies, the ball's vertical velocity (\texttt{vy}) is incremented by a small factor upon every paddle collision, capped at a maximum limit.
+
+\begin{lstlisting}[language=C, caption={Velocity Acceleration Logic}]
+// Inside collision detection
+if (abs(ball.vy) < MAX_SPEED) { 
+    if (ball.vy > 0) ball.vy += ACCEL_STEP;
+    else ball.vy -= ACCEL_STEP;
+}
+\end{lstlisting}
+
+\subsubsection{Best-of-Three Logic}
+Global counters track the number of rounds won by each player. The game loops until one player reaches 2 wins.
+
+\begin{lstlisting}[language=C, caption={Match Winning Condition}]
+if (winner == PLAYER_A) wins_a++;
+else wins_b++;
+
+if (wins_a >= 2 || wins_b >= 2) {
+    current_state = MATCH_OVER; // End of match
+} else {
+    Reset_Round(); // Start next round
+}
+\end{lstlisting}
+
+\subsubsection{Audio Effects}
+A buzzer module is used to generate sound. A sequence of tones plays at the \texttt{WELCOME} state, and short beeps are triggered during collisions.
+
+\subsection{Results}
+The improvements significantly increased the game's engagement. The \textbf{acceleration} mechanic ensures rounds conclude eventually, while the \textbf{obstacles} force players to stay alert. The \textbf{sound effects} provide immediate feedback, and the \textbf{Best-of-Three} rule makes victory feel more earned.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}[b]{0.4\textwidth}
+        \centering
+        \includegraphics[width=0.8\textwidth]{Game.jpg}
+        % \fbox{\parbox{5cm}{\vspace{6cm}\centering [Place Obstacles Photo]}}
+        \caption{Game with static obstacles (Green, Magenta, Cyan).}
+        \label{fig:obstacles}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.4\textwidth}
+        \centering
+        \includegraphics[width=0.8\textwidth]{BestOfThree.jpg}
+        % \fbox{\parbox{5cm}{\vspace{6cm}\centering [Place Best-of-Three Photo]}}
+        \caption{Best-of-Three match scoring system.}
+        \label{fig:best_of_three}
+    \end{subfigure}
+    \caption{Improved game features: obstacles and match scoring.}
+    \label{fig:improvement}
+\end{figure}
+
+\section{Conclusion}
+This project successfully integrated various STM32 peripherals to create a functional two-player game. Experiment 1 demonstrated mastery of basic embedded system concepts (GPIO, Interrupts, Timers, USART, LCD). Experiment 2 further explored game logic and collision physics by introducing obstacles, resulting in a more engaging and challenging experience.
+
+\end{document}
+

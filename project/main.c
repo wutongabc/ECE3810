@@ -41,7 +41,6 @@ typedef enum {
     COUNTDOWN,
     PLAYING,
     PAUSED, 
-    ROUND_OVER, // New State
     GAMEOVER
 } GameState;
 
@@ -83,10 +82,6 @@ Paddle paddle_bottom; // Player A
 u8 winner = 0; 
 u32 bounce_count = 0;
 u32 game_frames = 0; 
-
-// Scoreboard
-u8 score_top = 0;    // Player B
-u8 score_bottom = 0; // Player A
 
 // Obstacles Array
 Obstacle obstacles[3] = {
@@ -164,8 +159,9 @@ void Game_Reset(void) {
     paddle_bottom.x = (SCREEN_WIDTH - PADDLE_WIDTH) / 2;
     paddle_bottom.last_x = paddle_bottom.x;
     
-    // Reset Stats only if it's a new full match, handled in Welcome or GameOver
-    // bounce_count = 0; 
+    // Reset Stats
+    bounce_count = 0;
+    game_frames = 0;
 }
 
 // Draw Functions
@@ -180,10 +176,6 @@ void Draw_Welcome(void) {
         Play_Start_Sound();
         sound_played = 1;
     }
-    
-    // Reset Scores for new game
-    score_top = 0;
-    score_bottom = 0;
 }
 
 void Draw_Difficulty(Difficulty diff) {
@@ -237,15 +229,6 @@ void Draw_Game_Update(void) {
     ball.draw_y = screen_y;
     paddle_top.last_x = paddle_top.x;
     paddle_bottom.last_x = paddle_bottom.x;
-}
-
-// Draw Scoreboard (Only call when needed)
-void Draw_Scores(void) {
-    DrawString(10, 10, "TOP:", BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(50, 10, score_top + '0', RED, WHITE);
-    
-    DrawString(10, 780, "BOT:", BLACK, WHITE);
-    EIE3810_TFTLCD_ShowChar(50, 780, score_bottom + '0', RED, WHITE);
 }
 
 
@@ -347,7 +330,6 @@ int main(void) {
                 DrawString(230, 400, "1", RED, WHITE); Delay(10000000);
                 DrawString(230, 400, "GO!", RED, WHITE); Delay(10000000);
                 EIE3810_TFTLCD_Clear(WHITE); 
-                Draw_Scores(); // Initial Score Draw
                 current_state = PLAYING;
                 break;
                 
@@ -440,17 +422,9 @@ int main(void) {
                     }
                 }
                 
-                // Win/Loss -> Round Over or Game Over
-                if (ball_py < 0) { 
-                    score_bottom++; 
-                    winner = 1; 
-                    current_state = (score_bottom >= 2) ? GAMEOVER : ROUND_OVER; 
-                }
-                if (ball_py > SCREEN_HEIGHT) { 
-                    score_top++; 
-                    winner = 2; 
-                    current_state = (score_top >= 2) ? GAMEOVER : ROUND_OVER; 
-                }
+                // Win/Loss
+                if (ball_py < 0) { winner = 1; current_state = GAMEOVER; }
+                if (ball_py > SCREEN_HEIGHT) { winner = 2; current_state = GAMEOVER; }
                 
                 Draw_Game_Update();
                 game_frames++;
@@ -467,33 +441,13 @@ int main(void) {
                     Delay(5000000);
                 }
                 break;
-            
-            case ROUND_OVER:
-                // Show Round Winner
-                EIE3810_TFTLCD_Clear(WHITE);
-                DrawString(180, 350, "ROUND OVER", BLACK, WHITE);
-                if (winner == 1) DrawString(140, 400, "PLAYER A (BOTTOM) WINS ROUND!", RED, WHITE);
-                else DrawString(140, 400, "PLAYER B (TOP) WINS ROUND!", BLUE, WHITE);
-                
-                // Show Current Scores
-                DrawString(180, 450, "CURRENT SCORE:", BLACK, WHITE);
-                DrawString(180, 480, "TOP:", BLACK, WHITE);
-                EIE3810_TFTLCD_ShowChar(220, 480, score_top + '0', RED, WHITE);
-                DrawString(260, 480, "BOT:", BLACK, WHITE);
-                EIE3810_TFTLCD_ShowChar(300, 480, score_bottom + '0', RED, WHITE);
-                
-                Delay(40000000); // Wait 2s
-                EIE3810_TFTLCD_Clear(WHITE);
-                current_state = COUNTDOWN; // Next round
-                break;
                 
             case GAMEOVER:
             {
                 EIE3810_TFTLCD_Clear(WHITE);
-                if (winner == 1) DrawString(140, 300, "PLAYER A (BOTTOM) WINS GAME!", RED, WHITE);
-                else DrawString(140, 300, "PLAYER B (TOP) WINS GAME!", BLUE, WHITE);
+                if (winner == 1) DrawString(140, 300, "PLAYER A (BOTTOM) WINS!", RED, WHITE);
+                else DrawString(160, 300, "PLAYER B (TOP) WINS!", BLUE, WHITE);
                 
-                // Display Stats
                 DrawString(160, 350, "BOUNCES:", BLACK, WHITE);
                 u32 tmp = bounce_count;
                 u16 dx = 240;
